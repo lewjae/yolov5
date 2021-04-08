@@ -76,7 +76,6 @@ class LoadRS:  # for inference
         return self
 
     def __next__(self):
-        print("jae is inside of __next__") 
         self.count += 1
         if cv2.waitKey(1) == ord('q'):  # q to quit
             #self.cap.release()
@@ -84,7 +83,6 @@ class LoadRS:  # for inference
             self.pipeline.stop()
             raise StopIteration
         while True:  
-            print("jae is in the while loop")  
             # Read frame
             # Get frameset of color and depth
             frames = self.pipeline.wait_for_frames()
@@ -93,22 +91,31 @@ class LoadRS:  # for inference
             aligned_frames = self.align.process(frames)
 
             # Get aligned frames
-            aligned_depth_frame = aligned_frames.get_depth_frame() # aligned_depth_frame is a 640x480 depth image
+            depth_frame = aligned_frames.get_depth_frame() # aligned_depth_frame is a 640x480 depth image
             color_frame = aligned_frames.get_color_frame()
 
             # Validate that both frames are valid
-            if not aligned_depth_frame or not color_frame:
-                print("Jae is stuck inside for aligned loop")
+            if depth_frame or color_frame:
                 break
 
-        print("Jae is out of while loop")       
-        img0 = cv2.flip(color_frame, 1)  # flip left-right
+        # Convert images to numpy arrays
+        depth_frame = np.asanyarray(depth_frame.get_data())
+        color_frame = np.asanyarray(color_frame.get_data())  
+        #depth_frame =  depth_frame.get_data()    
+        #color_frame = color_frame.get_data() 
+        #cv2.imshow("color_frame",color_frame)      
+        img0 = color_frame  
+        #cv2.imshow("flipped_frame",img0)    
+        img_path = 'webcam.jpg'
+        print(f'webcam {self.count}: ', end='')
 
         # Padded resize
         img = letterbox(img0, self.img_size, stride=self.stride)[0]
+        # Stack
+        #img = np.stack(img, 0)
 
         # Convert
-        img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
+        img = img[:, :, ::-1].transpose(2,0,1)  # BGR to RGB, to 3x416x416
         img = np.ascontiguousarray(img)
 
         return img_path, img, img0, None
@@ -122,6 +129,7 @@ def detect(save_img=False):
     source, weights, view_img, save_txt, imgsz = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
     #webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
     #    ('rtsp://', 'rtmp://', 'http://'))
+    webcam = True
 
     # Directories
     save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
@@ -166,8 +174,13 @@ def detect(save_img=False):
     img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
     _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
     for path, img, im0s, vid_cap in dataset:
-        print("Jae is inside of dataset")
+        """print("Jae path: ", path)
+        print("Jae img shape: ",img.shape)
+        print("Jae im0s:", im0s)
+        print("Jae vid_cap: ", vid_cap)
+        """
         img = torch.from_numpy(img).to(device)
+
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
         if img.ndimension() == 3:
@@ -191,10 +204,11 @@ def detect(save_img=False):
                 p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(), dataset.count
             else:
                 p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
-
+            cv2.imshow("pred_im0",im0)
+            print("Jae - im0 shape",im0.shape)
             p = Path(p)  # to Path
             save_path = str(save_dir / p.name)  # img.jpg
-            txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
+            #txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
             s += '%gx%g ' % img.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
             if len(det):
@@ -205,9 +219,10 @@ def detect(save_img=False):
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += f'{n} {names[int(c)]}s, '  # add to string
-
+                
                 # Write results
                 for *xyxy, conf, cls in reversed(det):
+                    """
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                         line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
@@ -217,7 +232,8 @@ def detect(save_img=False):
                     if save_img or view_img:  # Add bbox to image
                         label = f'{names[int(cls)]} {conf:.2f}'
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
-
+                    """
+                
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
 
@@ -248,6 +264,40 @@ def detect(save_img=False):
 
     print(f'Done. ({time.time() - t0:.3f}s)')
 
+def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
+    # Resize and pad image while meeting stride-multiple constraints
+    shape = img.shape[:2]  # current shape [height, width]
+    if isinstance(new_shape, int):
+        new_shape = (new_shape, new_shape)
+
+    # Scale ratio (new / old)
+    r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
+    if not scaleup:  # only scale down, do not scale up (for better test mAP)
+        r = min(r, 1.0)
+
+    # Compute padding
+    ratio = r, r  # width, height ratios
+    new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
+    dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding
+    if auto:  # minimum rectangle
+        dw, dh = np.mod(dw, stride), np.mod(dh, stride)  # wh padding
+    elif scaleFill:  # stretch
+        dw, dh = 0.0, 0.0
+        new_unpad = (new_shape[1], new_shape[0])
+        ratio = new_shape[1] / shape[1], new_shape[0] / shape[0]  # width, height ratios
+
+    dw /= 2  # divide padding into 2 sides
+    dh /= 2
+
+    if shape[::-1] != new_unpad:  # resize
+        img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
+    top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
+    left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
+    img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
+    return img, ratio, (dw, dh)
+
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -277,3 +327,5 @@ if __name__ == '__main__':
                 strip_optimizer(opt.weights)
         else:
             detect()
+
+
