@@ -101,10 +101,11 @@ class LoadRS:  # for inference
         # Convert images to numpy arrays
         depth_frame = np.asanyarray(depth_frame.get_data())
         color_frame = np.asanyarray(color_frame.get_data())  
-        #depth_frame =  depth_frame.get_data()    
-        #color_frame = color_frame.get_data() 
+
         #cv2.imshow("color_frame",color_frame)      
-        img0 = color_frame  
+        img0 = color_frame
+      
+        #img0 = np.moveaxis(color_frame,2,0)
         #cv2.imshow("flipped_frame",img0)    
         img_path = 'webcam.jpg'
         print(f'webcam {self.count}: ', end='')
@@ -129,7 +130,7 @@ def detect(save_img=False):
     source, weights, view_img, save_txt, imgsz = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
     #webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
     #    ('rtsp://', 'rtmp://', 'http://'))
-    webcam = True
+    webcam = False
 
     # Directories
     save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
@@ -169,16 +170,10 @@ def detect(save_img=False):
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
 
     # Run inference
-    print("Jae is ready to do inferencing")
     t0 = time.time()
     img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
     _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
     for path, img, im0s, vid_cap in dataset:
-        """print("Jae path: ", path)
-        print("Jae img shape: ",img.shape)
-        print("Jae im0s:", im0s)
-        print("Jae vid_cap: ", vid_cap)
-        """
         img = torch.from_numpy(img).to(device)
 
         img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -204,8 +199,7 @@ def detect(save_img=False):
                 p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(), dataset.count
             else:
                 p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
-            cv2.imshow("pred_im0",im0)
-            print("Jae - im0 shape",im0.shape)
+            
             p = Path(p)  # to Path
             save_path = str(save_dir / p.name)  # img.jpg
             #txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
@@ -214,7 +208,9 @@ def detect(save_img=False):
             if len(det):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
-
+                bbox = det[:, :4].cpu().numpy()
+                #print("Jae,  scaled det[:,:4] ", det[:,:4])
+                print("\nJae - bbox ",bbox.shape, bbox)
                 # Print results
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
@@ -228,11 +224,11 @@ def detect(save_img=False):
                         line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
                         with open(txt_path + '.txt', 'a') as f:
                             f.write(('%g ' * len(line)).rstrip() % line + '\n')
-
+                    """
                     if save_img or view_img:  # Add bbox to image
                         label = f'{names[int(cls)]} {conf:.2f}'
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
-                    """
+                    
                 
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
@@ -240,7 +236,7 @@ def detect(save_img=False):
             # Stream results
             if view_img:
                 cv2.imshow(str(p), im0)
-
+            """
             # Save results (image with detections)
             if save_img:
                 if dataset.mode == 'image':
@@ -261,12 +257,13 @@ def detect(save_img=False):
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
         print(f"Results saved to {save_dir}{s}")
-
+    """
     print(f'Done. ({time.time() - t0:.3f}s)')
 
 def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
     # Resize and pad image while meeting stride-multiple constraints
     shape = img.shape[:2]  # current shape [height, width]
+
     if isinstance(new_shape, int):
         new_shape = (new_shape, new_shape)
 
