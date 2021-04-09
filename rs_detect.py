@@ -45,11 +45,11 @@ class LoadRS:  # for inference
         device_product_line = str(device.get_info(rs.camera_info.product_line))
 
         config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-
-        if device_product_line == 'L515':
-            config.enable_stream(rs.stream.color, 960, 540, rs.format.bgr8, 30)
+        print("Jae: Product", device_product_line)
+        if device_product_line == 'L500':
+            config.enable_stream(rs.stream.color, 1920, 1080, rs.format.bgr8, 30)
         else:
-            config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+            config.enable_stream(rs.stream.color, 640, 360, rs.format.bgr8, 30)
 
         # Start streaming
         profile = self.pipeline.start(config)
@@ -210,7 +210,7 @@ def detect(save_img=False):
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
                 bbox = det[:, :4].cpu().numpy()
                 #print("Jae,  scaled det[:,:4] ", det[:,:4])
-                print("\nJae - bbox ",bbox.shape, bbox)
+                #print("\nJae - bbox ",bbox.shape, bbox)
                 # Print results
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
@@ -235,6 +235,7 @@ def detect(save_img=False):
 
             # Stream results
             if view_img:
+                cv2.namedWindow(str(p), cv2.WINDOW_NORMAL)
                 cv2.imshow(str(p), im0)
             """
             # Save results (image with detections)
