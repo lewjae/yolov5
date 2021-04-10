@@ -234,7 +234,8 @@ def detect(save_img=False):
                     if save_img or view_img:  # Add bbox to image
                         label = f'{names[int(cls)]} {conf:.2f}'
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
-                    
+                        xywh = xyxy2xywh(torch.tensor(xyxy).view(1, 4)).view(-1).tolist()
+                        print("JAE: xywh", xywh)
                 
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
@@ -248,7 +249,8 @@ def detect(save_img=False):
                     # Remove background with 1m away
             grey_color = 153
             depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channels
-            bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), grey_color, im0s)
+            bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), grey_color, im0)
+
 
             cv2.namedWindow('RealSense', cv2.WINDOW_NORMAL)
             cv2.imshow('RealSense', bg_removed)
@@ -275,6 +277,12 @@ def detect(save_img=False):
         print(f"Results saved to {save_dir}{s}")
     """
     print(f'Done. ({time.time() - t0:.3f}s)')
+
+def draw_box(img, xywh)
+    (width, height) = img.shape
+    (x,y,w,h) = xywh
+    i
+
 
 def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
     # Resize and pad image while meeting stride-multiple constraints
