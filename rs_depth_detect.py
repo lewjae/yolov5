@@ -278,10 +278,10 @@ def detect(save_img=False):
     """
     print(f'Done. ({time.time() - t0:.3f}s)')
 
-def draw_box(img, xywh)
+def draw_box(img, xywh):
     (width, height) = img.shape
     (x,y,w,h) = xywh
-    i
+    
 
 
 def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
