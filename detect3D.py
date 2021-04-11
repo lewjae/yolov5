@@ -130,14 +130,9 @@ def detect(save_img=False):
 
         # We will be removing the background of objects more than
         #  clipping_distance_in_meters meters away
-    depth_scale =0.0002500000118743628    
-    clipping_distance_in_meters = 1.02 #1 meter
-    clipping_distance = clipping_distance_in_meters / depth_scale
-
-
 
     webcam = False
-
+    depth_scale =0.0002500000118743628
     # Directories
     save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
     (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
@@ -199,7 +194,6 @@ def detect(save_img=False):
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
 
-        grey_color = 153
         # Process detections
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
@@ -234,13 +228,13 @@ def detect(save_img=False):
                             f.write(('%g ' * len(line)).rstrip() % line + '\n')
                     """
                     if save_img or view_img:  # Add bbox to image
-                        label = f'{names[int(cls)]} {conf:.2f}'
-                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
                         xywh = xyxy2xywh(torch.tensor(xyxy).view(1, 4)).view(-1).tolist()
-                        # convert a list of float to a list of int
-                        xywh = list(map(int,xywh))
+                        (x,y,w,h) = xywh
+                        z = depth_image[int(y),int(x)]*depth_scale
+                        label = f'{names[int(cls)]} {conf:.2f}, {z:0.1f}m'
+                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
+
                         #print("JAE: xywh", xywh)
-                        covered_img = cover_detected_items(covered_img, xywh, grey_color)
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
 
@@ -249,17 +243,6 @@ def detect(save_img=False):
                 cv2.namedWindow(str(p), cv2.WINDOW_NORMAL)
                 cv2.imshow(str(p), im0)
 
-
-            # Remove background with 1m away
-            grey_color = 153
-            depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channels
-            #bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), grey_color, im0)
-            bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), grey_color, covered_img)
-
-            cv2.namedWindow("covered_img", cv2.WINDOW_NORMAL)
-            cv2.imshow("covered_img", covered_img)
-            cv2.namedWindow('RealSense', cv2.WINDOW_NORMAL)
-            cv2.imshow('RealSense', bg_removed)
             """
             # Save results (image with detections)
             if save_img:
@@ -283,15 +266,6 @@ def detect(save_img=False):
         print(f"Results saved to {save_dir}{s}")
     """
     print(f'Done. ({time.time() - t0:.3f}s)')
-
-def cover_detected_items(img, xywh, grey_color):
-    (x,y,w,h) = xywh
-    covered_img = img.copy()  #(shape h,w,c)
-    bbox = np.array([[[grey_color]*3]*w]*h)
-    #print("Jae - bbox", bbox.shape)
-    covered_img[y-round(h/2-0.1):y+round(h/2+0.1), x-round(w/2-0.1):x+round(w/2+0.1),:] = bbox
-
-    return covered_img
 
 
 def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
