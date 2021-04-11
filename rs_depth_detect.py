@@ -215,7 +215,7 @@ def detect(save_img=False):
             if len(det):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
-                bbox = det[:, :4].cpu().numpy()
+                #bbox = det[:, :4].cpu().numpy()
                 #print("Jae,  scaled det[:,:4] ", det[:,:4])
                 #print("\nJae - bbox ",bbox.shape, bbox)
                 # Print results
@@ -239,8 +239,8 @@ def detect(save_img=False):
                         xywh = xyxy2xywh(torch.tensor(xyxy).view(1, 4)).view(-1).tolist()
                         # convert a list of float to a list of int
                         xywh = list(map(int,xywh))
-                        #print("JAE: xywh", xywh)
-                        #covered_img = cover_detected_items(covered_img, xywh, grey_color)
+                        print("JAE: xywh", xywh)
+                        covered_img = cover_detected_items(covered_img, xywh, grey_color)
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
 
@@ -284,22 +284,12 @@ def detect(save_img=False):
     """
     print(f'Done. ({time.time() - t0:.3f}s)')
 
-def cover_detected_items(covered_img, xywh, grey_color):
+def cover_detected_items(img, xywh, grey_color):
     (x,y,w,h) = xywh
     covered_img = img.copy()  #(shape h,w,c)
-    for c in range(3):
-        for j in range(h):
-            for i in range(w):
-                covered_img[y-int(h/2)+j, x-int(w/2)+i,c]= grey_color
-
-    return covered_img
-
-def cover_detected_items(covered_img, xywh, grey_color):
-    (x,y,w,h) = xywh
-    covered_img = img.copy()  #(shape h,w,c)
-    bbox = np.array([[[grey_color]*h]*w]*3]
-    print("Jae - bbox", bbox)
-    covered_img[y-round(h/2-0.1):y+round(h/2+0.1), x-round(w/2-0.1):x+round(w/2+0.1),:]
+    bbox = np.array([[[grey_color]*3]*w]*h)
+    print("Jae - bbox", bbox.shape)
+    covered_img[y-round(h/2-0.1):y+round(h/2+0.1), x-round(w/2-0.1):x+round(w/2+0.1),:] = bbox
 
     return covered_img
 
