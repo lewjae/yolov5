@@ -60,7 +60,6 @@ class LoadRS:  # for inference
         print("Depth Scale is: " , depth_scale)
 
 
-
         # Create an align object
         # rs.align allows us to perform alignment of depth frames to others frames
         # The "align_to" is the stream type to which we plan to align depth frames.
@@ -94,7 +93,8 @@ class LoadRS:  # for inference
             # Validate that both frames are valid
             if depth_frame or color_frame:
                 break
-
+        
+        depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
         # Convert images to numpy arrays
         depth_frame = np.asanyarray(depth_frame.get_data())
         color_frame = np.asanyarray(color_frame.get_data())  
@@ -116,7 +116,7 @@ class LoadRS:  # for inference
         img = img[:, :, ::-1].transpose(2,0,1)  # BGR to RGB, to 3x416x416
         img = np.ascontiguousarray(img)
 
-        return img_path, img, img0, depth_frame
+        return img_path, img, img0, depth_frame, depth_intrin
 
     def __len__(self):
         return 0
@@ -174,7 +174,7 @@ def detect(save_img=False):
     t0 = time.time()
     img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
     _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
-    for path, img, im0s, depth_image in dataset:
+    for path, img, im0s, depth_image, depth_intrin in dataset:
         img = torch.from_numpy(img).to(device)
 
         img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -218,7 +218,6 @@ def detect(save_img=False):
                     s += f'{n} {names[int(c)]}s, '  # add to string
                 
                 # Write results
-                covered_img = im0
                 for *xyxy, conf, cls in reversed(det):
                     """
                     if save_txt:  # Write to file
@@ -231,7 +230,10 @@ def detect(save_img=False):
                         xywh = xyxy2xywh(torch.tensor(xyxy).view(1, 4)).view(-1).tolist()
                         (x,y,w,h) = xywh
                         z = depth_image[int(y),int(x)]*depth_scale
-                        label = f'{names[int(cls)]} {conf:.2f}, {z:0.1f}m'
+                        (x,y,z) = rs.rs2_deproject_pixel_to_point(depth_intrin,[y,x],z)
+                        #print("Jae deproject:", rs.rs2_deproject_pixel_to_point(depth_intrin,[y,x],z))
+                        #print("Jae-PC: ",pc[int(x),int(y),z])
+                        label = f'{names[int(cls)]} {conf:.2f}, [{x:0.1f} {y:0.1f} {z:0.1f}]m'
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
 
                         #print("JAE: xywh", xywh)
