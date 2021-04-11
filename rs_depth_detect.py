@@ -47,7 +47,7 @@ class LoadRS:  # for inference
         config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
         print("Jae: Product", device_product_line)
         if device_product_line == 'L500':
-            config.enable_stream(rs.stream.color, 1920, 1080, rs.format.bgr8, 30)
+            config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
         else:
             config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
 
@@ -199,6 +199,7 @@ def detect(save_img=False):
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
 
+        grey_color = 153
         # Process detections
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
@@ -223,6 +224,7 @@ def detect(save_img=False):
                     s += f'{n} {names[int(c)]}s, '  # add to string
                 
                 # Write results
+                covered_img = im0
                 for *xyxy, conf, cls in reversed(det):
                     """
                     if save_txt:  # Write to file
@@ -235,8 +237,10 @@ def detect(save_img=False):
                         label = f'{names[int(cls)]} {conf:.2f}'
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
                         xywh = xyxy2xywh(torch.tensor(xyxy).view(1, 4)).view(-1).tolist()
-                        print("JAE: xywh", xywh)
-                
+                        # convert a list of float to a list of int
+                        xywh = list(map(int,xywh))
+                        #print("JAE: xywh", xywh)
+                        #covered_img = cover_detected_items(covered_img, xywh, grey_color)
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
 
@@ -246,12 +250,14 @@ def detect(save_img=False):
                 cv2.imshow(str(p), im0)
 
 
-                    # Remove background with 1m away
+            # Remove background with 1m away
             grey_color = 153
             depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channels
-            bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), grey_color, im0)
+            #bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), grey_color, im0)
+            bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), grey_color, covered_img)
 
-
+            cv2.namedWindow("covered_img", cv2.WINDOW_NORMAL)
+            cv2.imshow("covered_img", covered_img)
             cv2.namedWindow('RealSense', cv2.WINDOW_NORMAL)
             cv2.imshow('RealSense', bg_removed)
             """
@@ -278,10 +284,24 @@ def detect(save_img=False):
     """
     print(f'Done. ({time.time() - t0:.3f}s)')
 
-def draw_box(img, xywh):
-    (width, height) = img.shape
+def cover_detected_items(covered_img, xywh, grey_color):
     (x,y,w,h) = xywh
-    
+    covered_img = img.copy()  #(shape h,w,c)
+    for c in range(3):
+        for j in range(h):
+            for i in range(w):
+                covered_img[y-int(h/2)+j, x-int(w/2)+i,c]= grey_color
+
+    return covered_img
+
+def cover_detected_items(covered_img, xywh, grey_color):
+    (x,y,w,h) = xywh
+    covered_img = img.copy()  #(shape h,w,c)
+    bbox = np.array([[[grey_color]*h]*w]*3]
+    print("Jae - bbox", bbox)
+    covered_img[y-round(h/2-0.1):y+round(h/2+0.1), x-round(w/2-0.1):x+round(w/2+0.1),:]
+
+    return covered_img
 
 
 def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
@@ -323,7 +343,7 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default='yolov5s.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='data/images', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default='rs', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
