@@ -27,6 +27,8 @@ def track(matrix_coefficients, distortion_coefficients, frame):
             read += 1
             cv2.imshow("aruco",gray) 
             time.sleep(1)
+        else:
+            print("can't read the tag")
         if cv2.waitKey(1) == ord('q'):  # q to quit
             #self.cap.release()
             cv2.destroyAllWindows()
