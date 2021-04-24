@@ -131,7 +131,7 @@ def detect(save_img=False):
         # We will be removing the background of objects more than
         #  clipping_distance_in_meters meters away
     depth_scale =0.0002500000118743628    
-    clipping_distance_in_meters = 0.6 #1.02 #1 meter
+    clipping_distance_in_meters = 1.10 #1.02 #1 meter
     clipping_distance = clipping_distance_in_meters / depth_scale
 
 
@@ -262,7 +262,7 @@ def detect(save_img=False):
             cv2.addWeighted(overlay,alpha,new_image,1-alpha, 0, new_image)
             #cv2.namedWindow("covered_img", cv2.WINDOW_NORMAL)
             #cv2.imshow("covered_img", covered_img)
-            cv2.namedWindow('Undetetect Items', cv2.WINDOW_NORMAL)
+            cv2.namedWindow('Undetected Items', cv2.WINDOW_NORMAL)
             cv2.imshow('Undetected Items', new_image)
 
 
