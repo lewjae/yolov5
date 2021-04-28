@@ -14,7 +14,11 @@ from utils.general import check_img_size, non_max_suppression, apply_classifier,
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
+from flask import Flask, jsonify
 
+app = Flask(__name__)
+
+@app.route('/', methods=["GET","POST"])
 def detect(save_img=False):
     source, weights, view_img, save_txt, imgsz = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
@@ -159,6 +163,8 @@ def detect(save_img=False):
 
     print(f'Done. ({time.time() - t0:.3f}s)')
 
+    return jsonfy(results)
+    #return "<h1> HI Jae!  </h1>"
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -180,7 +186,7 @@ if __name__ == '__main__':
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     opt = parser.parse_args()
     print(opt)
-
+    """
     with torch.no_grad():
         if opt.update:  # update all models (to fix SourceChangeWarning)
             for opt.weights in ['yolov5s.pt', 'yolov5m.pt', 'yolov5l.pt', 'yolov5x.pt']:
@@ -188,3 +194,6 @@ if __name__ == '__main__':
                 strip_optimizer(opt.weights)
         else:
             detect()
+    """
+    #app.run(host='0.0.0.0', port = 6000)
+    app.run(debug=True)
