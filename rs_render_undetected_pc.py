@@ -49,7 +49,7 @@ class LoadRS:  # for inference
         if device_product_line == 'L500':
             config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
         else:
-            config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
+            config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
 
         # Start streaming
         profile = self.pipeline.start(config)
@@ -58,6 +58,7 @@ class LoadRS:  # for inference
         depth_sensor = profile.get_device().first_depth_sensor()
         depth_scale = depth_sensor.get_depth_scale()
         print("Depth Scale is: " , depth_scale)
+
 
 
         # Create an align object
@@ -93,8 +94,7 @@ class LoadRS:  # for inference
             # Validate that both frames are valid
             if depth_frame or color_frame:
                 break
-        
-        depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
+
         # Convert images to numpy arrays
         depth_frame = np.asanyarray(depth_frame.get_data())
         color_frame = np.asanyarray(color_frame.get_data())  
@@ -116,11 +116,38 @@ class LoadRS:  # for inference
         img = img[:, :, ::-1].transpose(2,0,1)  # BGR to RGB, to 3x416x416
         img = np.ascontiguousarray(img)
 
-        return img_path, img, img0, depth_frame, depth_intrin
+        return img_path, img, img0, depth_frame
 
     def __len__(self):
         return 0
 
+class AppState:
+
+    def __init__(self, *args, **kwargs):
+        self.WIN_NAME = 'RealSense'
+        self.pitch, self.yaw = math.radians(-10), math.radians(-15)
+        self.translation = np.array([0, 0, -1], dtype=np.float32)
+        self.distance = 2
+        self.prev_mouse = 0, 0
+        self.mouse_btns = [False, False, False]
+        self.paused = False
+        self.decimate = 1
+        self.scale = True
+        self.color = True
+
+    def reset(self):
+        self.pitch, self.yaw, self.distance = 0, 0, 2
+        self.translation[:] = 0, 0, -1
+
+    @property
+    def rotation(self):
+        Rx, _ = cv2.Rodrigues((self.pitch, 0, 0))
+        Ry, _ = cv2.Rodrigues((0, self.yaw, 0))
+        return np.dot(Ry, Rx).astype(np.float32)
+
+    @property
+    def pivot(self):
+        return self.translation + np.array((0, 0, self.distance), dtype=np.float32)
 
 
 def detect(save_img=False):
@@ -128,13 +155,19 @@ def detect(save_img=False):
     #webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
     #    ('rtsp://', 'rtmp://', 'http://'))
 
-        # We will be removing the background of objects more than
-        #  clipping_distance_in_meters meters away
+    
+    
+    
+    
+    # We will be removing the background of objects more than
+    #  clipping_distance_in_meters meters away
+    depth_scale =0.0002500000118743628    
+    clipping_distance_in_meters = 0.98 #1 meter
+    clipping_distance = clipping_distance_in_meters / depth_scale
+
+
 
     webcam = False
-    #depth_scale =0.00025   #L515
-    depth_scale = 0.001  #D435i
-
 
     # Directories
     save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
@@ -177,7 +210,7 @@ def detect(save_img=False):
     t0 = time.time()
     img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
     _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
-    for path, img, im0s, depth_image, depth_intrin in dataset:
+    for path, img, im0s, depth_image in dataset:
         img = torch.from_numpy(img).to(device)
 
         img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -197,6 +230,7 @@ def detect(save_img=False):
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
 
+        grey_color = 153
         # Process detections
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
@@ -221,6 +255,7 @@ def detect(save_img=False):
                     s += f'{n} {names[int(c)]}s, '  # add to string
                 
                 # Write results
+                covered_img = im0
                 for *xyxy, conf, cls in reversed(det):
                     """
                     if save_txt:  # Write to file
@@ -230,16 +265,13 @@ def detect(save_img=False):
                             f.write(('%g ' * len(line)).rstrip() % line + '\n')
                     """
                     if save_img or view_img:  # Add bbox to image
-                        xywh = xyxy2xywh(torch.tensor(xyxy).view(1, 4)).view(-1).tolist()
-                        (x,y,w,h) = xywh
-                        z = depth_image[int(y),int(x)]*depth_scale
-                        (x,y,z) = rs.rs2_deproject_pixel_to_point(depth_intrin,[y,x],z)
-                        #print("Jae deproject:", rs.rs2_deproject_pixel_to_point(depth_intrin,[y,x],z))
-                        #print("Jae-PC: ",pc[int(x),int(y),z])
-                        label = f'{names[int(cls)]} {conf:.2f}, [{x:0.1f} {y:0.1f} {z:0.1f}]m'
+                        label = f'{names[int(cls)]} {conf:.2f}'
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
-
+                        xywh = xyxy2xywh(torch.tensor(xyxy).view(1, 4)).view(-1).tolist()
+                        # convert a list of float to a list of int
+                        xywh = list(map(int,xywh))
                         #print("JAE: xywh", xywh)
+                        covered_img = cover_detected_items(covered_img, xywh, grey_color)
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
 
@@ -248,6 +280,17 @@ def detect(save_img=False):
                 cv2.namedWindow(str(p), cv2.WINDOW_NORMAL)
                 cv2.imshow(str(p), im0)
 
+
+            # Remove background with 1m away
+            grey_color = 153
+            depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channels
+            #bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), grey_color, im0)
+            bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), grey_color, covered_img)
+
+            cv2.namedWindow("covered_img", cv2.WINDOW_NORMAL)
+            cv2.imshow("covered_img", covered_img)
+            cv2.namedWindow('RealSense', cv2.WINDOW_NORMAL)
+            cv2.imshow('RealSense', bg_removed)
             """
             # Save results (image with detections)
             if save_img:
@@ -271,6 +314,15 @@ def detect(save_img=False):
         print(f"Results saved to {save_dir}{s}")
     """
     print(f'Done. ({time.time() - t0:.3f}s)')
+
+def cover_detected_items(img, xywh, grey_color):
+    (x,y,w,h) = xywh
+    covered_img = img.copy()  #(shape h,w,c)
+    bbox = np.array([[[grey_color]*3]*w]*h)
+    #print("Jae - bbox", bbox.shape)
+    covered_img[y-round(h/2-0.1):y+round(h/2+0.1), x-round(w/2-0.1):x+round(w/2+0.1),:] = bbox
+
+    return covered_img
 
 
 def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
