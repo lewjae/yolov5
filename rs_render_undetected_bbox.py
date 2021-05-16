@@ -281,7 +281,7 @@ def detect(save_img=False):
             #depth_image = depth_image/10
             print("Jae - depth_image",depth_image)
             #cv2.namedWindow("depth_image",cv2.WINDOW_NORMAL)
-            #cv2.imshow("depth_image", depth_image)
+            #git cv2.imshow("depth_image", depth_image)
             ret, thresh =  cv2.threshold(depth_image,72,255,0)
             cnt, hier = cv2.findContours(thresh, 1,2)
             print("Jae-cnt shape", len(cnt))
