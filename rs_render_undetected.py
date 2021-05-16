@@ -49,7 +49,7 @@ class LoadRS:  # for inference
         if device_product_line == 'L500':
             config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
         else:
-            config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+            config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
 
         # Start streaming
         profile = self.pipeline.start(config)
@@ -130,8 +130,8 @@ def detect(save_img=False):
 
         # We will be removing the background of objects more than
         #  clipping_distance_in_meters meters away
-    depth_scale =0.0002500000118743628    
-    clipping_distance_in_meters = 1.02 #1 meter
+    depth_scale = 0.001 #0.0002500000118743628    
+    clipping_distance_in_meters = 0.75 #1.02 #1 meter
     clipping_distance = clipping_distance_in_meters / depth_scale
 
 

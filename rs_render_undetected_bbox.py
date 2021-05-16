@@ -16,7 +16,7 @@ from utils.general import check_img_size, non_max_suppression, apply_classifier,
     strip_optimizer, set_logging, increment_path
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
-
+#from helper_functions import get_boundary_corners_2D
 
 class LoadRS:  # for inference
     def __init__(self, pipe='rs', img_size=640, stride=32):
@@ -49,7 +49,7 @@ class LoadRS:  # for inference
         if device_product_line == 'L500':
             config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
         else:
-            config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+            config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
 
         # Start streaming
         profile = self.pipeline.start(config)
@@ -121,33 +121,6 @@ class LoadRS:  # for inference
     def __len__(self):
         return 0
 
-class AppState:
-
-    def __init__(self, *args, **kwargs):
-        self.WIN_NAME = 'RealSense'
-        self.pitch, self.yaw = math.radians(-10), math.radians(-15)
-        self.translation = np.array([0, 0, -1], dtype=np.float32)
-        self.distance = 2
-        self.prev_mouse = 0, 0
-        self.mouse_btns = [False, False, False]
-        self.paused = False
-        self.decimate = 1
-        self.scale = True
-        self.color = True
-
-    def reset(self):
-        self.pitch, self.yaw, self.distance = 0, 0, 2
-        self.translation[:] = 0, 0, -1
-
-    @property
-    def rotation(self):
-        Rx, _ = cv2.Rodrigues((self.pitch, 0, 0))
-        Ry, _ = cv2.Rodrigues((0, self.yaw, 0))
-        return np.dot(Ry, Rx).astype(np.float32)
-
-    @property
-    def pivot(self):
-        return self.translation + np.array((0, 0, self.distance), dtype=np.float32)
 
 
 def detect(save_img=False):
@@ -155,14 +128,10 @@ def detect(save_img=False):
     #webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
     #    ('rtsp://', 'rtmp://', 'http://'))
 
-    
-    
-    
-    
-    # We will be removing the background of objects more than
-    #  clipping_distance_in_meters meters away
-    depth_scale =0.0002500000118743628    
-    clipping_distance_in_meters = 0.98 #1 meter
+        # We will be removing the background of objects more than
+        #  clipping_distance_in_meters meters away
+    depth_scale = 0.001 #0.0002500000118743628    
+    clipping_distance_in_meters = 0.72 #1.02 #1 meter
     clipping_distance = clipping_distance_in_meters / depth_scale
 
 
@@ -230,7 +199,7 @@ def detect(save_img=False):
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
 
-        grey_color = 153
+        gray_color = 0
         # Process detections
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
@@ -243,6 +212,7 @@ def detect(save_img=False):
             #txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
             s += '%gx%g ' % img.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
+            covered_img = im0
             if len(det):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
@@ -255,7 +225,7 @@ def detect(save_img=False):
                     s += f'{n} {names[int(c)]}s, '  # add to string
                 
                 # Write results
-                covered_img = im0
+                #covered_img = im0
                 for *xyxy, conf, cls in reversed(det):
                     """
                     if save_txt:  # Write to file
@@ -271,7 +241,7 @@ def detect(save_img=False):
                         # convert a list of float to a list of int
                         xywh = list(map(int,xywh))
                         #print("JAE: xywh", xywh)
-                        covered_img = cover_detected_items(covered_img, xywh, grey_color)
+                        covered_img = cover_detected_items(covered_img, xywh, gray_color)
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
 
@@ -282,16 +252,45 @@ def detect(save_img=False):
 
 
             # Remove background with 1m away
-            grey_color = 153
+            #gray_color = 255
+
             depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channels
-            #bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), grey_color, im0)
-            bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), grey_color, covered_img)
+            #bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), gray_color, im0)
+            bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), gray_color, covered_img)
 
             cv2.namedWindow("covered_img", cv2.WINDOW_NORMAL)
             cv2.imshow("covered_img", covered_img)
             cv2.namedWindow('RealSense', cv2.WINDOW_NORMAL)
             cv2.imshow('RealSense', bg_removed)
+
             """
+            gray_img = cv2.cvtColor(bg_removed, cv2.COLOR_BGR2GRAY)
+            cv2.namedWindow("gray_img", cv2.WINDOW_NORMAL)
+            cv2.imshow("gray_img",gray_img)
+            ret, thresh =  cv2.threshold(gray_img, gray_color,255,0)
+            #print("Jae - ret", ret)
+            cnt, hier = cv2.findContours(thresh, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+            print("Jae-cnt shape", len(cnt))
+            for i in range(len(cnt)):
+                x,y,w,h  = cv2.boundingRect(cnt[i])
+                print("Jae-bbox", x,y,w,h)
+                bbox = cv2.rectangle(bg_removed,(x,y),(x+w,w+h), (0,255,0),5)
+                cv2.imshow("bbox",bbox)
+            """
+            depth_image = np.array(depth_image/10,dtype=int)
+            #depth_image = depth_image/10
+            print("Jae - depth_image",depth_image)
+            #cv2.namedWindow("depth_image",cv2.WINDOW_NORMAL)
+            #cv2.imshow("depth_image", depth_image)
+            ret, thresh =  cv2.threshold(depth_image,72,255,0)
+            cnt, hier = cv2.findContours(thresh, 1,2)
+            print("Jae-cnt shape", len(cnt))
+            for i in range(len(cnt)):
+                x,y,w,h  = cv2.boundingRect(cnt[i])
+                print("Jae-bbox", x,y,w,h)
+                bbox = cv2.rectangle(bg_removed,(x,y),(x+w,w+h), (0,255,0),5)
+                cv2.imshow("bbox",bbox)
+            """    
             # Save results (image with detections)
             if save_img:
                 if dataset.mode == 'image':
