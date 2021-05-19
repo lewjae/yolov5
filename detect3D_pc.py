@@ -29,7 +29,8 @@ class LoadRS:  # for inference
         self.img_size = img_size
         self.stride = stride
 
-        """         if pipe.isnumeric():
+        """         
+        if pipe.isnumeric():
             pipe = eval(pipe)  # local camera
         # pipe = 'rtsp://192.168.1.64/1'  # IP camera
         # pipe = 'rtsp://username:password@192.168.1.64/1'  # IP camera with login
@@ -37,8 +38,8 @@ class LoadRS:  # for inference
 
         self.pipe = pipe
         self.cap = cv2.VideoCapture(pipe)  # video capture object
-        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 3)  # set buffer size """
-        """
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 3)  # set buffer size 
+     
         # Intialize realsense camera
         # Configure depth and color streams
         self.pipeline = rs.pipeline()
@@ -71,30 +72,36 @@ class LoadRS:  # for inference
         # The "align_to" is the stream type to which we plan to align depth frames.
         align_to = rs.stream.color
         self.align = rs.align(align_to)
+
         """
-    	# Define some constants 
-	    resolution_width = 1280 # pixels
-	    resolution_height = 720 # pixels
-	    frame_rate = 15  # fps
-	    dispose_frames_for_stablisation = 30  # frames
+    	
+        # Define some constants 
+        resolution_width = 1280 
+        resolution_height = 720
+        frame_rate = 15  # fps
+        dispose_frames_for_stablisation = 30  # frames
     	
         
 		# Enable the streams from all the intel realsense devices
-		rs_config = rs.config()
-		rs_config.enable_stream(rs.stream.depth, resolution_width, resolution_height, rs.format.z16, frame_rate)
-		rs_config.enable_stream(rs.stream.infrared, 1, resolution_width, resolution_height, rs.format.y8, frame_rate)
-		rs_config.enable_stream(rs.stream.color, resolution_width, resolution_height, rs.format.bgr8, frame_rate)
+        rs_config = rs.config()
+        rs_config.enable_stream(rs.stream.depth, resolution_width, resolution_height, rs.format.z16, frame_rate)
+        rs_config.enable_stream(rs.stream.infrared, 1, resolution_width, resolution_height, rs.format.y8, frame_rate)
+        rs_config.enable_stream(rs.stream.color, resolution_width, resolution_height, rs.format.bgr8, frame_rate)
 
 		# Use the device manager class to enable the devices and get the frames
-		device_manager = DeviceManager(rs.context(), rs_config)
-		device_manager.enable_all_devices()
+        device_manager = DeviceManager(rs.context(), rs_config)
+        device_manager.enable_all_devices()
 		
 		# Allow some frames for the auto-exposure controller to stablise
-		for frame in range(dispose_frames_for_stablisation):
-			frames = device_manager.poll_frames()
+        for frame in range(dispose_frames_for_stablisation):
+        	frames = device_manager.poll_frames()
 
-		assert( len(device_manager._available_devices) > 0 )
+        assert( len(device_manager._available_devices) > 0 )
 
+        for (device, frame) in frames.items():
+            color_image = np.asarray(frame[rs.stream.color].get_data())
+            cv2.imshow('Image from ' + device, color_image)
+            cv2.waitKey(1)
 
     def __iter__(self):
         self.count = -1
@@ -110,22 +117,22 @@ class LoadRS:  # for inference
         while True:  
             # Read frame
             # Get frameset of color and depth
-            frames = self.pipeline.wait_for_frames()
-
+            #frames = self.pipeline.wait_for_frames()
+            frames = device_manager.poll_frames()
             # Align the depth frame to color frame
-            aligned_frames = self.align.process(frames)
+            #aligned_frames = self.align.process(frames)
 
             # Get aligned frames
-            depth_frame = aligned_frames.get_depth_frame() # aligned_depth_frame is a 640x480 depth image
+            #depth_frame = aligned_frames.get_depth_frame() # aligned_depth_frame is a 640x480 depth image
             color_frame = aligned_frames.get_color_frame()
 
             # Validate that both frames are valid
             if depth_frame or color_frame:
                 break
         
-        depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
+        #depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
         # Convert images to numpy arrays
-        depth_frame = np.asanyarray(depth_frame.get_data())
+        #depth_frame = np.asanyarray(depth_frame.get_data())
         color_frame = np.asanyarray(color_frame.get_data())  
 
         #cv2.imshow("color_frame",color_frame)      
