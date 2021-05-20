@@ -64,7 +64,40 @@ def calculate_cumulative_pointcloud(frames_devices, calibration_info_devices, ro
 	point_cloud_cumulative = np.delete(point_cloud_cumulative, 0, 1)
 	return point_cloud_cumulative
 
+def get_color_images(frames_devices):
+	"""
+ 	Get color images from the multiple devices
+	Parameters:
+	-----------
+	frames_devices : dict
+		The frames from the different devices
+		keys: str
+			Serial number of the device
+		values: [frame]
+			frame: rs.frame()
+				The frameset obtained over the active pipeline from the realsense device
+				
+	calibration_info_devices : dict
+		keys: str
+			Serial number of the device
+		values: [transformation_devices, intrinsics_devices]
+			transformation_devices: Transformation object
+					The transformation object containing the transformation information between the device and the world coordinate systems
+			intrinsics_devices: rs.intrinscs
+					The intrinsics of the depth_frame of the realsense device
+	
+	Return:
+	----------
+	color_images : array
+		color_images from the multiple devices
+	"""
 
+	color_images = {}
+	for (device, frame) in frames_devices.items() :
+		color_images[device] = np.asarray(frame[rs.stream.color].get_data())
+		cv2.imshow('Image from ' + device, color_images[device])
+		cv2.waitKey(1)
+	return color_images
 
 
 def calculate_boundingbox_points(point_cloud, calibration_info_devices, depth_threshold = 0.01):
@@ -141,7 +174,6 @@ def calculate_boundingbox_points(point_cloud, calibration_info_devices, depth_th
 		return bounding_box_points_color_image, min_area_rectangle[1][0], min_area_rectangle[1][1], height
 	else : 
 		return {},0,0,0
-
 
 
 def visualise_measurements(frames_devices, bounding_box_points_devices, length, width, height):

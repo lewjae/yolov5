@@ -17,56 +17,48 @@ from utils.general import check_img_size, non_max_suppression, apply_classifier,
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
+# Import helper functions and classes written to wrap the RealSense, OpenCV and Kabsch Calibration usage
+from collections import defaultdict
+from realsense_device_manager import DeviceManager
+from calibration_kabsch import PoseEstimation
+from helper_functions import get_boundary_corners_2D
+from measurement_task import calculate_boundingbox_points, calculate_cumulative_pointcloud, visualise_measurements
 
 class LoadRS:  # for inference
     def __init__(self, pipe='rs', img_size=640, stride=32):
         self.img_size = img_size
         self.stride = stride
+    	
+        # Define some constants 
+        resolution_width = 640
+        resolution_height = 480
+        frame_rate = 15  # fps
+        dispose_frames_for_stablisation = 30  # frames
+    	
+        
+		# Enable the streams from all the intel realsense devices
+        rs_config = rs.config()
+        rs_config.enable_stream(rs.stream.depth, resolution_width, resolution_height, rs.format.z16, frame_rate)
+        #rs_config.enable_stream(rs.stream.infrared, 1, resolution_width, resolution_height, rs.format.y8, frame_rate)
+        rs_config.enable_stream(rs.stream.color, resolution_width, resolution_height, rs.format.bgr8, frame_rate)
 
-        """         if pipe.isnumeric():
-            pipe = eval(pipe)  # local camera
-        # pipe = 'rtsp://192.168.1.64/1'  # IP camera
-        # pipe = 'rtsp://username:password@192.168.1.64/1'  # IP camera with login
-        # pipe = 'http://wmccpinetop.axiscam.net/mjpg/video.mjpg'  # IP golf camera
+		# Use the device manager class to enable the devices and get the frames
+        self.device_manager = DeviceManager(rs.context(), rs_config)
+        self.device_manager.enable_all_devices()
+		
+		# Allow some frames for the auto-exposure controller to stablise
+        for frame in range(dispose_frames_for_stablisation):
+        	frames = self.device_manager.poll_frames()
 
-        self.pipe = pipe
-        self.cap = cv2.VideoCapture(pipe)  # video capture object
-        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 3)  # set buffer size """
+        assert( len(self.device_manager._available_devices) > 0 )
 
-        # Intialize realsense camera
-        # Configure depth and color streams
-        self.pipeline = rs.pipeline()
-        config = rs.config()
-
-        # Get device product line for setting a supporting resolution
-        pipeline_wrapper = rs.pipeline_wrapper(self.pipeline)
-        pipeline_profile = config.resolve(pipeline_wrapper)
-        device = pipeline_profile.get_device()
-        device_product_line = str(device.get_info(rs.camera_info.product_line))
-
-        config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-        print("Jae: Product", device_product_line)
-        if device_product_line == 'L500':
-            config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
-        else:
-            config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-
-        # Start streaming
-        profile = self.pipeline.start(config)
-
-        # Getting the depth sensor's depth scale (see rs-align example for explanation)
-        depth_sensor = profile.get_device().first_depth_sensor()
-        depth_scale = depth_sensor.get_depth_scale()
-        print("Depth Scale is: " , depth_scale)
-
-
-        # Create an align object
-        # rs.align allows us to perform alignment of depth frames to others frames
-        # The "align_to" is the stream type to which we plan to align depth frames.
-        align_to = rs.stream.color
-        self.align = rs.align(align_to)
-
-
+        self.align = rs.align(rs.stream.color)
+        """
+        for (device, frame) in frames.items():
+            color_image = np.asarray(frame[rs.stream.color].get_data())
+            cv2.imshow('Image from ' + device, color_image)
+            cv2.waitKey(1)
+        """
     def __iter__(self):
         self.count = -1
         return self
@@ -78,68 +70,73 @@ class LoadRS:  # for inference
             cv2.destroyAllWindows()
             self.pipeline.stop()
             raise StopIteration
-        while True:  
+        
             # Read frame
             # Get frameset of color and depth
-            frames = self.pipeline.wait_for_frames()
+            #frames = self.pipeline.wait_for_frames()
+        frames = self.device_manager.poll_frames()
+        #color_images = {}
+        img0 = []
+        img = []
+        sources = []
+        for (device, frame) in frames.items():
+            #color_images[device] = np.asarray(frame[rs.stream.color].get_data())
+            color_image = np.asarray(frame[rs.stream.color].get_data())
+            print("[Jae]: color_image",color_image.shape)
+            img0.append(color_image)
+            #Letter Box
+            img.append(letterbox(color_image, new_shape=self.img_size)[0])
+            sources.append(device)
+            
 
             # Align the depth frame to color frame
-            aligned_frames = self.align.process(frames)
+            #aligned_frames = self.align.process(frames)
 
             # Get aligned frames
-            depth_frame = aligned_frames.get_depth_frame() # aligned_depth_frame is a 640x480 depth image
-            color_frame = aligned_frames.get_color_frame()
+            #depth_frame = aligned_frames.get_depth_frame() # aligned_depth_frame is a 640x480 depth image
+            #color_frame = aligned_frames.get_color_frame()
 
-            # Validate that both frames are valid
-            if depth_frame or color_frame:
-                break
+
         
-        depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
+        #depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
         # Convert images to numpy arrays
-        depth_frame = np.asanyarray(depth_frame.get_data())
-        color_frame = np.asanyarray(color_frame.get_data())  
+        #depth_frame = np.asanyarray(depth_frame.get_data())
+        #color_frame = np.asanyarray(color_frame.get_data())  
 
         #cv2.imshow("color_frame",color_frame)      
-        img0 = color_frame
+        #img0 = color_frame
       
         #img0 = np.moveaxis(color_frame,2,0)
         #cv2.imshow("flipped_frame",img0)    
-        img_path = 'webcam.jpg'
         print(f'webcam {self.count}: ', end='')
 
         # Padded resize
-        img = letterbox(img0, self.img_size, stride=self.stride)[0]
-        cv2.imshow("img", img)
+        #img = letterbox(img0, self.img_size, stride=self.stride)[0]
         # Stack
-        #img = np.stack(img, 0)
-
+        img = np.stack(img, 0)
+        #print("[Jae] - img.shape ",img.shape)
+        cv2.imshow("img",img[0])
         # Convert
-        img = img[:, :, ::-1].transpose(2,0,1)  # BGR to RGB, to 3x416x416
+        img = img[:, :, ::-1].transpose(0,3,1,2)  # BGR to RGB, to 3x416x416
+        #print("[Jae] - img.shape after ",img.shape)
         img = np.ascontiguousarray(img)
 
-        return img_path, img, img0, depth_frame, depth_intrin
+        return sources, img, img0
 
     def __len__(self):
         return 0
 
 
 
-def detect(save_img=False):
-    source, weights, view_img, save_txt, imgsz = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
-    #webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
-    #    ('rtsp://', 'rtmp://', 'http://'))
-
-        # We will be removing the background of objects more than
-        #  clipping_distance_in_meters meters away
-
-    webcam = False
-    #depth_scale =0.00025   #L515
+def detect(source="rs"):
+    #source, weights, view_img, save_txt, imgsz = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
+    source = "rs"
+    weights = "yolov5m_0502_best.pt"
+    view_img = True
+    imgsz = 640
+    webcam = True
     depth_scale = 0.001  #D435i
 
-
-    # Directories
-    save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
-    (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
     # Initialize
     set_logging()
@@ -167,7 +164,6 @@ def detect(save_img=False):
         cudnn.benchmark = True  # set True to speed up constant image size inference
         dataset = LoadRS(source, img_size=imgsz)
     else:
-        save_img = True
         dataset = LoadImages(source, img_size=imgsz)
         print("***** Something wrong! Exit right away *****")
     # Get names and colors
@@ -178,10 +174,9 @@ def detect(save_img=False):
     t0 = time.time()
     img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
     _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
-    for path, img, im0s, depth_image, depth_intrin in dataset:
-        print("Jae: ", img)
-        img = torch.from_numpy(img).to(device)
-        print("Jae: ", img.shape)
+    for path, img, im0s in dataset:
+        print("Jae: ", img[0])
+        img = torch.from_numpy(img[0]).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
         if img.ndimension() == 3:
@@ -207,7 +202,7 @@ def detect(save_img=False):
                 p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
             
             p = Path(p)  # to Path
-            save_path = str(save_dir / p.name)  # img.jpg
+            #save_path = str(save_dir / p.name)  # img.jpg
             #txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
             s += '%gx%g ' % img.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
@@ -224,21 +219,15 @@ def detect(save_img=False):
                 
                 # Write results
                 for *xyxy, conf, cls in reversed(det):
-                    """
-                    if save_txt:  # Write to file
-                        xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                        line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
-                        with open(txt_path + '.txt', 'a') as f:
-                            f.write(('%g ' * len(line)).rstrip() % line + '\n')
-                    """
-                    if save_img or view_img:  # Add bbox to image
-                        xywh = xyxy2xywh(torch.tensor(xyxy).view(1, 4)).view(-1).tolist()
-                        (x,y,w,h) = xywh
-                        z = depth_image[int(y),int(x)]*depth_scale
-                        (x,y,z) = rs.rs2_deproject_pixel_to_point(depth_intrin,[y,x],z)
+
+                    if view_img:  # Add bbox to image
+                        #xywh = xyxy2xywh(torch.tensor(xyxy).view(1, 4)).view(-1).tolist()
+                        #(x,y,w,h) = xywh
+                        #z = depth_image[int(y),int(x)]*depth_scale
+                        #(x,y,z) = rs.rs2_deproject_pixel_to_point(depth_intrin,[y,x],z)
                         #print("Jae deproject:", rs.rs2_deproject_pixel_to_point(depth_intrin,[y,x],z))
                         #print("Jae-PC: ",pc[int(x),int(y),z])
-                        label = f'{names[int(cls)]} {conf:.2f}, [{x:0.1f} {y:0.1f} {z:0.1f}]m'
+                        label = f'{names[int(cls)]} {conf:.2f}'
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
 
                         #print("JAE: xywh", xywh)
@@ -250,28 +239,6 @@ def detect(save_img=False):
                 cv2.namedWindow(str(p), cv2.WINDOW_NORMAL)
                 cv2.imshow(str(p), im0)
 
-            """
-            # Save results (image with detections)
-            if save_img:
-                if dataset.mode == 'image':
-                    cv2.imwrite(save_path, im0)
-                else:  # 'video'
-                    if vid_path != save_path:  # new video
-                        vid_path = save_path
-                        if isinstance(vid_writer, cv2.VideoWriter):
-                            vid_writer.release()  # release previous video writer
-
-                        fourcc = 'mp4v'  # output video codec
-                        fps = vid_cap.get(cv2.CAP_PROP_FPS)
-                        w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                        h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                        vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*fourcc), fps, (w, h))
-                    vid_writer.write(im0)
-
-    if save_txt or save_img:
-        s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
-        print(f"Results saved to {save_dir}{s}")
-    """
     print(f'Done. ({time.time() - t0:.3f}s)')
 
 
