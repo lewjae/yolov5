@@ -84,8 +84,9 @@ class LoadRS:  # for inference
             color_image = np.asarray(frame[rs.stream.color].get_data())
             #print("[Jae]: color_image",color_image.shape)
             img0.append(color_image)
-            #Letter Box
-            img.append(letterbox(color_image, new_shape=self.img_size)[0])
+            #Letter Box, BGR to RGB, to 3x416x416
+            #temp = letterbox(color_image, new_shape=self.img_size)[0]
+            img.append(letterbox(color_image, new_shape=self.img_size)[0][:,:,::-1].transpose(2,0,1))
             sources.append(device)
             
 
@@ -114,15 +115,15 @@ class LoadRS:  # for inference
         #img = letterbox(img0, self.img_size, stride=self.stride)[0]
         # Stack
         img = np.stack(img, 0)
-        cv2.imshow("img",img[0])
+        #cv2.imshow("img",img[0])
         #print(img[0][:,:,0])
         # Convert
         #img = img[::-1, :, :].transpose(0,3,1,2)  # BGR to RGB, to 3x416x416
-        temp = img[0][:,:,::-1].transpose(2,0,1)
-        new_img = np.array([temp])
+        #temp = img[0][:,:,::-1].transpose(2,0,1)
+        #new_img = np.array([temp])
         #print("[Jae] - img.shape after ",img[])
-        print(new_img[0][2,:,:])
-        img = np.ascontiguousarray(new_img)
+        #print(new_img[0][2,:,:])
+        img = np.ascontiguousarray(img)
 
         return sources, img, img0
 
