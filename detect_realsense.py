@@ -180,7 +180,7 @@ def detect():
     _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
     for path, img, im0s in dataset:
         #print("Jae: ", img[0,0,:,:])
-        img = torch.from_numpy(img[0]).to(device)
+        img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
         if img.ndimension() == 3:
