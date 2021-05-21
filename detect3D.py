@@ -109,12 +109,15 @@ class LoadRS:  # for inference
 
         # Padded resize
         img = letterbox(img0, self.img_size, stride=self.stride)[0]
+        print("[Jae] - img.shape ",img.shape)
         cv2.imshow("img", img)
+        
         # Stack
         #img = np.stack(img, 0)
 
         # Convert
         img = img[:, :, ::-1].transpose(2,0,1)  # BGR to RGB, to 3x416x416
+        print(img[0,:,:])
         img = np.ascontiguousarray(img)
 
         return img_path, img, img0, depth_frame, depth_intrin
@@ -179,9 +182,9 @@ def detect(save_img=False):
     img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
     _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
     for path, img, im0s, depth_image, depth_intrin in dataset:
-        print("Jae: ", img)
+        #print("Jae: ", img[0,:,:])
         img = torch.from_numpy(img).to(device)
-        print("Jae: ", img.shape)
+        #print("Jae: ", img.shape)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
         if img.ndimension() == 3:
@@ -198,7 +201,7 @@ def detect(save_img=False):
         # Apply Classifier
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
-        print("Jae: pred - ",pred)
+        #print("Jae: pred - ",pred)
         # Process detections
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
@@ -313,7 +316,7 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='yolov5s.pt', help='model.pt path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='yolov5m_0502_best.pt', help='model.pt path(s)')
     parser.add_argument('--source', type=str, default='rs', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')

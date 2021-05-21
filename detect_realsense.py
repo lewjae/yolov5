@@ -82,7 +82,7 @@ class LoadRS:  # for inference
         for (device, frame) in frames.items():
             #color_images[device] = np.asarray(frame[rs.stream.color].get_data())
             color_image = np.asarray(frame[rs.stream.color].get_data())
-            print("[Jae]: color_image",color_image.shape)
+            #print("[Jae]: color_image",color_image.shape)
             img0.append(color_image)
             #Letter Box
             img.append(letterbox(color_image, new_shape=self.img_size)[0])
@@ -108,17 +108,20 @@ class LoadRS:  # for inference
       
         #img0 = np.moveaxis(color_frame,2,0)
         #cv2.imshow("flipped_frame",img0)    
-        print(f'webcam {self.count}: ', end='')
+        print(f'webcam {self.count}: ', end='\n')
 
         # Padded resize
         #img = letterbox(img0, self.img_size, stride=self.stride)[0]
         # Stack
+
         img = np.stack(img, 0)
         #print("[Jae] - img.shape ",img.shape)
         cv2.imshow("img",img[0])
+        #print(img[0][:,:,0])
         # Convert
         img = img[:, :, ::-1].transpose(0,3,1,2)  # BGR to RGB, to 3x416x416
-        #print("[Jae] - img.shape after ",img.shape)
+        #print("[Jae] - img.shape after ",img[])
+        #print(img[0][0,:,:])
         img = np.ascontiguousarray(img)
 
         return sources, img, img0
@@ -128,7 +131,7 @@ class LoadRS:  # for inference
 
 
 
-def detect(source="rs"):
+def detect():
     #source, weights, view_img, save_txt, imgsz = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
     source = "rs"
     weights = "yolov5m_0502_best.pt"
@@ -175,7 +178,7 @@ def detect(source="rs"):
     img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
     _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
     for path, img, im0s in dataset:
-        print("Jae: ", img[0])
+        #print("Jae: ", img[0,0,:,:])
         img = torch.from_numpy(img[0]).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -193,7 +196,7 @@ def detect(source="rs"):
         # Apply Classifier
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
-        print("Jae: pred - ",pred)
+        #print("Jae: pred - ",pred)
         # Process detections
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
