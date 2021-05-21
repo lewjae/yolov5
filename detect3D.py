@@ -117,7 +117,7 @@ class LoadRS:  # for inference
 
         # Convert
         img = img[:, :, ::-1].transpose(2,0,1)  # BGR to RGB, to 3x416x416
-        print(img[0,:,:])
+        print(img[2,:,:])
         img = np.ascontiguousarray(img)
 
         return img_path, img, img0, depth_frame, depth_intrin
