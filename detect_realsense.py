@@ -140,7 +140,11 @@ def detect():
     imgsz = 640
     webcam = True
     depth_scale = 0.001  #D435i
-
+    augment = 'store_true'
+    conf_thres = 0.5 
+    iou_thres = 0.45 
+    classes = [0,1,2,3,4,5,6]
+    agnostic_nms = 'store_true'
 
     # Initialize
     set_logging()
@@ -188,10 +192,11 @@ def detect():
 
         # Inference
         t1 = time_synchronized()
-        pred = model(img, augment=opt.augment)[0]
+        pred = model(img, augment=augment)[0]
         #print("Jae: pred - ",pred)
         # Apply NMS
-        pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
+        #pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
+        pred = non_max_suppression(pred, conf_thres, iou_thres, classes=classes, agnostic=agnostic_nms)
         t2 = time_synchronized()
 
         # Apply Classifier
@@ -232,7 +237,7 @@ def detect():
                         #print("Jae deproject:", rs.rs2_deproject_pixel_to_point(depth_intrin,[y,x],z))
                         #print("Jae-PC: ",pc[int(x),int(y),z])
                         label = f'{names[int(cls)]} {conf:.2f}'
-                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
 
                         #print("JAE: xywh", xywh)
             # Print time (inference + NMS)
