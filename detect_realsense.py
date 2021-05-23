@@ -145,10 +145,10 @@ def detect():
     iou_thres = 0.45 
     classes = [0,1,2,3,4,5,6]
     agnostic_nms = 'store_true'
-
+    device = ''
     # Initialize
     set_logging()
-    device = select_device(opt.device)
+    device = select_device(device)
     half = device.type != 'cpu'  # half precision only supported on CUDA
 
     # Load model

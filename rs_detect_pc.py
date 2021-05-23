@@ -25,13 +25,87 @@ from helper_functions import get_boundary_corners_2D
 from measurement_task import get_color_images, calculate_boundingbox_points, calculate_cumulative_pointcloud, visualise_measurements
 
 import argparse
-from detect_realsense import detect
+from detect_realsense2 import detect
+
+def calibrate_multicams():
+	
+	# Define some constants 
+	resolution_width = 640 # pixels
+	resolution_height = 480 # pixels
+	frame_rate = 15  # fps
+	dispose_frames_for_stablisation = 30  # frames
+	
+	chessboard_width = 6 # squares
+	chessboard_height = 9 	# squares
+	square_size = 0.055 # 0.0253  0.04 # meters  
+
+	try:
+		# Enable the streams from all the intel realsense devices
+		rs_config = rs.config()
+		rs_config.enable_stream(rs.stream.depth, resolution_width, resolution_height, rs.format.z16, frame_rate)
+		rs_config.enable_stream(rs.stream.infrared, 1, resolution_width, resolution_height, rs.format.y8, frame_rate)
+		rs_config.enable_stream(rs.stream.color, resolution_width, resolution_height, rs.format.bgr8, frame_rate)
+
+		# Use the device manager class to enable the devices and get the frames
+		device_manager = DeviceManager(rs.context(), rs_config)
+		device_manager.enable_all_devices()
+		
+		# Allow some frames for the auto-exposure controller to stablise
+		for frame in range(dispose_frames_for_stablisation):
+			frames = device_manager.poll_frames()
+
+		assert( len(device_manager._available_devices) > 0 )
 
 
+		# Get the intrinsics of the realsense device 
+		intrinsics_devices = device_manager.get_device_intrinsics(frames)
+			
+		# Set the chessboard parameters for calibration 
+		chessboard_params = [chessboard_height, chessboard_width, square_size] 
+			
+		# Estimate the pose of the chessboard in the world coordinate using the Kabsch Method
+		calibrated_device_count = 0
+		while calibrated_device_count < len(device_manager._available_devices):
+			frames = device_manager.poll_frames()
+			pose_estimator = PoseEstimation(frames, intrinsics_devices, chessboard_params)
+			transformation_result_kabsch  = pose_estimator.perform_pose_estimation()
+			object_point = pose_estimator.get_chessboard_corners_in3d()
+			calibrated_device_count = 0
+			for device in device_manager._available_devices:
+				if not transformation_result_kabsch[device][0]:
+					print("[Jae] device: ",device)
+					print("Place the chessboard on the plane where the object needs to be detected..")
+				else:
+					calibrated_device_count += 1
 
+			# Save the transformation object for all devices in an array to use for measurements
+		transformation_devices={}
+		chessboard_points_cumulative_3d = np.array([-1,-1,-1]).transpose()
+		for device in device_manager._available_devices:
+			transformation_devices[device] = transformation_result_kabsch[device][1].inverse()
+			points3D = object_point[device][2][:,object_point[device][3]]
+			points3D = transformation_devices[device].apply_transformation(points3D)
+			chessboard_points_cumulative_3d = np.column_stack( (chessboard_points_cumulative_3d,points3D) )
 
+		# Extract the bounds between which the object's dimensions are needed
+		# It is necessary for this demo that the object's length and breath is smaller than that of the chessboard
+		chessboard_points_cumulative_3d = np.delete(chessboard_points_cumulative_3d, 0, 1)
+		roi_2D = get_boundary_corners_2D(chessboard_points_cumulative_3d)
 
+		print("Calibration completed... \nPlace the box in the field of view of the devices...")
+		print("transformation_devices: ", transformation_devices)
+		print("roi_2D: ",roi_2D)
+		device_manager.disable_streams()
+		print("[Jae]: Disabled Realsense streamming.....")
+		#cv2.destroyAllWindows()
+	except KeyboardInterrupt:
+		print("The program was interupted by the user. Closing the program...")
+		device_manager.disable_streams()
+		print("[Jae]: Disabled Realsense streamming.....")
+		#cv2.destroyAllWindows()
 
+	return transformation_devices,roi_2D
+		
 def run_demo():
 	
 	# Define some constants 
@@ -42,7 +116,7 @@ def run_demo():
 	
 	chessboard_width = 6 # squares
 	chessboard_height = 9 	# squares
-	square_size = 0.023 # 0.0253 # meters  
+	square_size = 0.055 # 0.0253  0.04 # meters  
 
 	try:
 		# Enable the streams from all the intel realsense devices
@@ -107,6 +181,7 @@ def run_demo():
 			print("transformation_devices: ", transformation_devices)
 			print("roi_2D: ",roi_2D)
 
+
 		"""
                 2: Measurement and display
                 Measure the dimension of the object using depth maps from multiple RealSense devices
@@ -135,19 +210,19 @@ def run_demo():
 				frames_devices = device_manager.poll_frames()
 
 				# Calculate the pointcloud using the depth frames from all the devices
-				point_cloud = calculate_cumulative_pointcloud(frames_devices, calibration_info_devices, roi_2D)
+				#point_cloud = calculate_cumulative_pointcloud(frames_devices, calibration_info_devices, roi_2D)
 
 				# Show color_image from each camera
-				color_images = get_color_images(frames_devices)
+				#color_images = get_color_images(frames_devices)
 
 				# Run yolov5 objection detection(color_images)
 				detect()
 
 				# Get the bounding box for the pointcloud in image coordinates of the color imager
-				#bounding_box_points_color_image, length, width, height = calculate_boundingbox_points(point_cloud, calibration_info_devices )
+				bounding_box_points_color_image, length, width, height = calculate_boundingbox_points(point_cloud, calibration_info_devices )
 
 				# Draw the bounding box points on the color image and visualise the results
-				#visualise_measurements(frames_devices, bounding_box_points_color_image, length, width, height)
+				visualise_measurements(frames_devices, bounding_box_points_color_image, length, width, height)
 
 
 
@@ -165,5 +240,7 @@ if __name__ == "__main__":
 	parser.add_argument('--calibration',type=bool,default=True,help='calibrate cameras')
 	opt = parser.parse_args()
 	print(opt)
-
-	run_demo()
+	if opt.calibration:
+		transformation_devices,roi_2D = calibrate_multicams()
+	
+	detect(transformation_devices,roi_2D)
