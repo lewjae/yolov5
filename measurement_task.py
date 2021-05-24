@@ -232,3 +232,60 @@ def visualise_measurements(frames_devices, bounding_box_points_devices, length, 
 		# Visualise the results
 		cv2.imshow('Color image from RealSense Device Nr: ' + device, color_image)
 		cv2.waitKey(1)
+def new_visualise_measurements(im0s, devices, bounding_box_points_devices, length, width, height):
+	"""
+ Calculate the cumulative pointcloud from the multiple devices
+	
+	Parameters:
+	-----------
+	frames_devices : dict
+		The frames from the different devices
+		keys: str
+			Serial number of the device
+		values: [frame]
+			frame: rs.frame()
+				The frameset obtained over the active pipeline from the realsense device
+				
+	bounding_box_points_color_image : dict
+		The bounding box corner points in the image coordinate system for the color imager
+		keys: str
+				Serial number of the device
+			values: [points]
+				points: list
+					The (8x2) list of the upper corner points stacked above the lower corner points 
+					
+	length : double
+		The length of the bounding box calculated in the world coordinates of the pointcloud
+		
+	width : double
+		The width of the bounding box calculated in the world coordinates of the pointcloud
+		
+	height : double
+		The height of the bounding box calculated in the world coordinates of the pointcloud
+	"""
+	for i in range(len(devices)):
+		color_image = im0s[i]
+		device = devices[i]
+		if (length != 0 and width !=0 and height != 0):
+			bounding_box_points_device_upper = bounding_box_points_devices[device][0:4,:]
+			bounding_box_points_device_lower = bounding_box_points_devices[device][4:8,:]
+			box_info = "Length, Width, Height (mm): " + str(int(length*1000)) + ", " + str(int(width*1000)) + ", " + str(int(height*1000))
+
+			# Draw the box as an overlay on the color image		
+			bounding_box_points_device_upper = tuple(map(tuple,bounding_box_points_device_upper.astype(int)))
+			for i in range(len(bounding_box_points_device_upper)):	
+				cv2.line(color_image, bounding_box_points_device_upper[i], bounding_box_points_device_upper[(i+1)%4], (0,255,0), 4)
+
+			bounding_box_points_device_lower = tuple(map(tuple,bounding_box_points_device_lower.astype(int)))
+			for i in range(len(bounding_box_points_device_upper)):	
+				cv2.line(color_image, bounding_box_points_device_lower[i], bounding_box_points_device_lower[(i+1)%4], (0,255,0), 1)
+				
+			cv2.line(color_image, bounding_box_points_device_upper[0], bounding_box_points_device_lower[0], (0,255,0), 1)
+			cv2.line(color_image, bounding_box_points_device_upper[1], bounding_box_points_device_lower[1], (0,255,0), 1)
+			cv2.line(color_image, bounding_box_points_device_upper[2], bounding_box_points_device_lower[2], (0,255,0), 1)
+			cv2.line(color_image, bounding_box_points_device_upper[3], bounding_box_points_device_lower[3], (0,255,0), 1)
+			cv2.putText(color_image, box_info, (50,50), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0) )
+			
+		# Visualise the results
+		cv2.imshow('3D Box: ' + device, color_image)
+		cv2.waitKey(1)

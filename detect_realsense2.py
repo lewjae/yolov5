@@ -19,10 +19,10 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized
 
 # Import helper functions and classes written to wrap the RealSense, OpenCV and Kabsch Calibration usage
 from collections import defaultdict
-from realsense_device_manager import DeviceManager
+from realsense_device_manager import DeviceManager, post_process_depth_frame
 from calibration_kabsch import PoseEstimation
-from helper_functions import get_boundary_corners_2D
-from measurement_task import calculate_boundingbox_points, calculate_cumulative_pointcloud, visualise_measurements
+from helper_functions import get_boundary_corners_2D, convert_depth_frame_to_pointcloud, get_clipped_pointcloud
+from measurement_task import calculate_boundingbox_points, new_visualise_measurements
 
 class LoadRS:  # capture Realsense stream
 	def __init__(self, pipe='rs', img_size=640, stride=32):
@@ -99,16 +99,11 @@ class LoadRS:  # capture Realsense stream
 		self.roi_2D = get_boundary_corners_2D(chessboard_points_cumulative_3d)
 
 		print("Calibration completed... \nPlace the box in the field of view of the devices...")
-		print("transformation_devices: ", transformation_devices)
-		print("roi_2D: ",self.roi_2D)           
-   
+		#print("transformation_devices: ", transformation_devices)
+		#print("roi_2D: ",self.roi_2D)           
 
-
-		
 		# Enable the emitter of the devices
 		self.device_manager.enable_emitter(True)
-
-
 
 		# Load the JSON settings file in order to enable High Accuracy preset for the realsense
 		self.device_manager.load_settings_json("./HighResHighAccuracyPreset.json")
@@ -140,19 +135,23 @@ class LoadRS:  # capture Realsense stream
 		frames = self.device_manager.poll_frames()
 		
 		# Calculate the pointcloud using the depth frames from all the devices
-		point_cloud = calculate_cumulative_pointcloud(frames, self.calibration_info_devices, self.roi_2D)
+		#point_cloud = calculate_cumulative_pointcloud(frames, self.calibration_info_devices, self.roi_2D)
 		#color_images = {}
 		img0 = []
 		img = []
 		sources = []
+		depth_frames = []
 		for (device, frame) in frames.items():
 			#color_images[device] = np.asarray(frame[rs.stream.color].get_data())
 			color_image = np.asarray(frame[rs.stream.color].get_data())
+			filtered_depth_frame = np.asarray(post_process_depth_frame(frame[rs.stream.depth], temporal_smooth_alpha=0.1, temporal_smooth_delta=80).get_data())
+			#filtered_depth_frame = np.asarray(frame[rs.stream.depth].get_data())
 			#print("[Jae]: color_image",color_image.shape)
 			img0.append(color_image)
 			#Letter Box, BGR to RGB, to 3x416x416
 			#temp = letterbox(color_image, new_shape=self.img_size)[0]
 			img.append(letterbox(color_image, new_shape=self.img_size)[0][:,:,::-1].transpose(2,0,1))
+			depth_frames.append(filtered_depth_frame)
 			sources.append(device)
 			
 
@@ -162,19 +161,7 @@ class LoadRS:  # capture Realsense stream
 			# Get aligned frames
 			#depth_frame = aligned_frames.get_depth_frame() # aligned_depth_frame is a 640x480 depth image
 			#color_frame = aligned_frames.get_color_frame()
-
-
-		
-		#depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
-		# Convert images to numpy arrays
-		#depth_frame = np.asanyarray(depth_frame.get_data())
-		#color_frame = np.asanyarray(color_frame.get_data())  
-
-		#cv2.imshow("color_frame",color_frame)      
-		#img0 = color_frame
-	  
-		#img0 = np.moveaxis(color_frame,2,0)
-		#cv2.imshow("flipped_frame",img0)    
+   
 		print(f'webcam {self.count}: ', end='\n')
 
 		# Padded resize
@@ -190,8 +177,9 @@ class LoadRS:  # capture Realsense stream
 		#print("[Jae] - img.shape after ",img[])
 		#print(new_img[0][2,:,:])
 		img = np.ascontiguousarray(img)
+		#depth_frames = np.ascontiguousarray(depth_frames)
 
-		return sources, img, img0, point_cloud
+		return sources, img, img0, depth_frames, self.calibration_info_devices, self.roi_2D
 
 	def __len__(self):
 		return 0
@@ -212,6 +200,7 @@ def detect():
 	classes = [0,1,2,3,4,5,6]
 	agnostic_nms = 'store_true'
 	device = ''
+	depth_threshold = 0.01
 	# Initialize
 	set_logging()
 	device = select_device(device)
@@ -241,7 +230,12 @@ def detect():
 	t0 = time.time()
 	img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
 	_ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
-	for path, img, im0s,pcs in dataset:
+	
+	for path, img, im0s, depth_frames, calibration_info_devices, roi_2d in dataset:
+		
+		#point_cloud = convert_depth_frame_to_pointcloud(depth_frames,calibration_info_devices[device][1][rs.stream.depth]))
+		point_cloud_cumulative = np.array([-1, -1, -1]).transpose()
+
 		img = torch.from_numpy(img).to(device)
 		img = img.half() if half else img.float()  # uint8 to fp16/32
 		img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -263,18 +257,16 @@ def detect():
 
 		# Process detections
 		for i, det in enumerate(pred):  # detections per image
-			if webcam:  # batch_size >= 1
-				p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(), dataset.count
-			else:
-				p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
-			
-			p = Path(p)  # to Path
+
+			cam, s, im0, depth_image, frame = path[i], '%g: ' % i, im0s[i].copy(),depth_frames[i].copy(), dataset.count
+
+			p = Path(cam)  # to Path
 			s += '%gx%g ' % img.shape[2:]  # print string
 			gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
 			if len(det):
 				# Rescale boxes from img_size to im0 size
 				det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
-				#bbox = det[:, :4].cpu().numpy()
+				bbox = det[:, :4].cpu().numpy()
 				#print("Jae,  scaled det[:,:4] ", det[:,:4])
 				#print("\nJae - bbox ",bbox.shape, bbox)
 				# Print results
@@ -286,13 +278,14 @@ def detect():
 				for *xyxy, conf, cls in reversed(det):
 
 					if view_img:  # Add bbox to image
-						#xywh = xyxy2xywh(torch.tensor(xyxy).view(1, 4)).view(-1).tolist()
-						#(x,y,w,h) = xywh
-						#z = depth_image[int(y),int(x)]*depth_scale
+						(x,y,w,h) = xyxy2xywh(torch.tensor(xyxy).view(1, 4)).view(-1).tolist()
+						z = depth_image[int(y),int(x)]*depth_scale
+						(x,y,z) = rs.rs2_deproject_pixel_to_point(calibration_info_devices[cam][1][rs.stream.depth],[y,x],z)
 						#(x,y,z) = rs.rs2_deproject_pixel_to_point(depth_intrin,[y,x],z)
 						#print("Jae deproject:", rs.rs2_deproject_pixel_to_point(depth_intrin,[y,x],z))
 						#print("Jae-PC: ",pc[int(x),int(y),z])
-						label = f'{names[int(cls)]} {conf:.2f}'
+						#label = f'{names[int(cls)]} {conf:.2f}'
+						label = f'{names[int(cls)]} {conf:.2f}, [{x:0.1f} {y:0.1f} {z:0.1f}]m'
 						plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
 
 						#print("JAE: xywh", xywh)
@@ -303,7 +296,26 @@ def detect():
 			if view_img:
 				cv2.namedWindow(str(p), cv2.WINDOW_NORMAL)
 				cv2.imshow(str(p), im0)
+			
+			# Show 
+			point_cloud = convert_depth_frame_to_pointcloud(depth_image, calibration_info_devices[cam][1][rs.stream.depth])
+			point_cloud = np.asanyarray(point_cloud)
+			# Get the point cloud in the world-coordinates using the transformation
+			point_cloud = calibration_info_devices[cam][0].apply_transformation(point_cloud)
 
+			# Filter the point cloud based on the depth of the object
+			# The object placed has its height in the negative direction of z-axis due to the right-hand coordinate system
+			point_cloud = get_clipped_pointcloud(point_cloud, roi_2d)
+			point_cloud = point_cloud[:,point_cloud[2,:]<-depth_threshold]
+			point_cloud_cumulative = np.column_stack( ( point_cloud_cumulative, point_cloud ))
+		point_cloud_cumulative = np.delete(point_cloud_cumulative, 0, 1)
+		
+		# Get the bounding box for the pointcloud in image coordinates of the color imager
+		bounding_box_points_color_image, length, width, height = calculate_boundingbox_points(point_cloud_cumulative, calibration_info_devices )
+
+		# Draw the bounding box points on the color image and visualise the results
+		new_visualise_measurements(im0s,path, bounding_box_points_color_image, length, width, height)
+		
 	print(f'Done. ({time.time() - t0:.3f}s)')
 
 
