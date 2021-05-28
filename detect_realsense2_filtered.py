@@ -316,8 +316,8 @@ def detect():
 						#(xx1,yy1,zz1) = convert_depth_pixel_to_metric_coordinate(z1,x1p,y1p,calibration_info_devices[cam][1][rs.stream.depth])	
 						#(xx2,yy2,zz2) = convert_depth_pixel_to_metric_coordinate(z2,x2p,y2p,calibration_info_devices[cam][1][rs.stream.depth])
 						print("xx,yy,zz in depth coord: ", xx, yy, zz)	
-						(xx,yy,zz) = rs.rs2_transform_point_to_point(calibration_info_devices[cam][2],[xx,yy,zz])
-						print("xx,yy,zz in color coord: ", xx, yy, zz)				
+						#(xx,yy,zz) = rs.rs2_transform_point_to_point(calibration_info_devices[cam][2],[xx,yy,zz])
+						#print("xx,yy,zz in color coord: ", xx, yy, zz)				
 						#label = f'{names[int(cls)]} {conf:.2f}'
 						label = f'{names[int(cls)]} {conf:.2f}, [{x:0.2f} {y:0.2f} {z:0.2f}]m'
 						plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
