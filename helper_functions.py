@@ -261,7 +261,27 @@ def get_clipped_pointcloud(pointcloud, boundary):
 	pointcloud = pointcloud[:,np.logical_and(pointcloud[1,:]<boundary[3], pointcloud[1,:]>boundary[2])]
 	return pointcloud
 
-
+def get_masked_pointcloud(pointcloud, boundary):
+	"""
+	Mask pointcloud within the X and Y bounds specified in the boundary 
+	
+	Parameters:
+	-----------
+	pointcloud 	 	 : array
+						   The input pointcloud which needs to be clipped
+	boundary      : array
+										The X and Y bounds 
+	
+	Return:
+	----------
+	pointcloud : array
+		The clipped pointcloud
+	
+	"""
+	assert (pointcloud.shape[0]>=2)
+	pointcloud = pointcloud[:,np.logical_or(pointcloud[0,:]>boundary[1], pointcloud[0,:]<boundary[0])]
+	pointcloud = pointcloud[:,np.logical_or(pointcloud[1,:]>boundary[3], pointcloud[1,:]<boundary[2])]
+	return pointcloud
 
 
 

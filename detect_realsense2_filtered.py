@@ -23,7 +23,7 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized
 from collections import defaultdict
 from realsense_device_manager import DeviceManager, post_process_depth_frame
 from calibration_kabsch import PoseEstimation
-from helper_functions import get_boundary_corners_2D, convert_depth_frame_to_pointcloud, get_clipped_pointcloud, convert_depth_pixel_to_metric_coordinate
+from helper_functions import get_boundary_corners_2D, convert_depth_frame_to_pointcloud, get_clipped_pointcloud, convert_depth_pixel_to_metric_coordinate, get_masked_pointcloud
 from measurement_task import calculate_boundingbox_points, new_visualise_measurements
 
 # Import for point cloud visulalization
@@ -273,6 +273,7 @@ def detect():
 
 			cam, s, im0, depth_image, frame = path[i], '%g: ' % i, im0s[i].copy(),depth_frames[i].copy(), dataset.count
 
+			s += '%s '%cam
 			p = Path(cam)  # to Path
 			s += '%gx%g ' % img.shape[2:]  # print string
 	
@@ -280,6 +281,7 @@ def detect():
 			point_cloud = convert_depth_frame_to_pointcloud(depth_image, calibration_info_devices[cam][1][rs.stream.depth])
 			point_cloud = np.asanyarray(point_cloud)
 
+			#print("R,t: ", cam, calibration_info_devices[cam][0].pose_mat)
 			gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
 			if len(det):
 				# Rescale boxes from img_size to im0 size
@@ -306,28 +308,30 @@ def detect():
 						#cv2.rectangle(im0, (int(x1p),int(y1p)), (int(x2p),int(y2p)), (255,0,0), 8)
 						# convert image pixel into meters
 						z = depth_image[int(yp),int(xp)]*depth_scale  # center
-						#z1 = depth_image[int(y1p),int(x1p)]*depth_scale
-						#z2 = depth_image[int(y2p)-1,int(x2p)-1]*depth_scale
+						z1 = depth_image[int(y1p),int(x1p)]*depth_scale
+						z2 = depth_image[int(y2p)-1,int(x2p)]*depth_scale
 						(x,y,z) = rs.rs2_deproject_pixel_to_point(calibration_info_devices[cam][1][rs.stream.depth],[xp,yp],z)
-						#(x1,y1,z1) = rs.rs2_deproject_pixel_to_point(calibration_info_devices[cam][1][rs.stream.depth],[y1p,x1p],z1)
-						#(x2,y2,z2) = rs.rs2_deproject_pixel_to_point(calibration_info_devices[cam][1][rs.stream.depth],[y2p,x2p],z2)	
-						print("x,y,z in depth coord:   ", x,y,z)
+						#(x1,y1,z1) = rs.rs2_deproject_pixel_to_point(calibration_info_devices[cam][1][rs.stream.depth],[x1p,y1p],z1)
+						#(x2,y2,z2) = rs.rs2_deproject_pixel_to_point(calibration_info_devices[cam][1][rs.stream.depth],[x2p,y2p],z2)	
+						#print("x,y,z inimag coord:   ", x,y,z)
 						(xx,yy,zz) = convert_depth_pixel_to_metric_coordinate(z,xp,yp,calibration_info_devices[cam][1][rs.stream.depth])
-						#(xx1,yy1,zz1) = convert_depth_pixel_to_metric_coordinate(z1,x1p,y1p,calibration_info_devices[cam][1][rs.stream.depth])	
-						#(xx2,yy2,zz2) = convert_depth_pixel_to_metric_coordinate(z2,x2p,y2p,calibration_info_devices[cam][1][rs.stream.depth])
-						print("xx,yy,zz in depth coord: ", xx, yy, zz)	
+						(xx1,yy1,zz1) = convert_depth_pixel_to_metric_coordinate(z1,x1p,y1p,calibration_info_devices[cam][1][rs.stream.depth])	
+						(xx2,yy2,zz2) = convert_depth_pixel_to_metric_coordinate(z2,x2p,y2p,calibration_info_devices[cam][1][rs.stream.depth])
+						#print("xx,yy,zz in imag coord: ", xx, yy, zz)	
 						#(xx,yy,zz) = rs.rs2_transform_point_to_point(calibration_info_devices[cam][2],[xx,yy,zz])
 						#print("xx,yy,zz in color coord: ", xx, yy, zz)				
 						#label = f'{names[int(cls)]} {conf:.2f}'
 						label = f'{names[int(cls)]} {conf:.2f}, [{x:0.2f} {y:0.2f} {z:0.2f}]m'
 						plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
-						(xc,yc,zc) = calibration_info_devices[cam][0].apply_transformation(np.array([xx,yy,zz]).reshape(3,1)).tolist()
+						#(xc,yc,zc) = calibration_info_devices[cam][0].apply_transformation(np.array([xx,yy,zz]).reshape(3,1)).tolist()
 						#print("JAE: x,y,z ", x, y, z )
-						print("x,y,z in checker coord: ", xc, yc, zc)
+						#print("x,y,z in checker coord: ", xc, yc, zc)
 
-						#bbox = np.array([xx1,xx2, yy1, yy2])
-						#print("Jae -bbox:", bbox)
-						#point_cloud = get_clipped_pointcloud(point_cloud, bbox)
+						bbox = np.array([xx1,xx2, yy1, yy2])
+						print("Jae -bbox:", bbox, xx2-xx1, yy2-yy1)
+						#print("point_cloud size ", point_cloud.shape)
+						point_cloud = get_masked_pointcloud(point_cloud, bbox)
+						#print("point_cloud size ", point_cloud.shape)
 			# Print time (inference + NMS)
 			print(f'{s}Done. ({t2 - t1:.3f}s)')
 
