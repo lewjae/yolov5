@@ -317,18 +317,18 @@ def detect():
 						(xx,yy,zz) = convert_depth_pixel_to_metric_coordinate(z,xp,yp,calibration_info_devices[cam][1][rs.stream.color])
 						(xx1,yy1,zz1) = convert_depth_pixel_to_metric_coordinate(z1,x1p,y1p,calibration_info_devices[cam][1][rs.stream.color])	
 						(xx2,yy2,zz2) = convert_depth_pixel_to_metric_coordinate(z2,x2p,y2p,calibration_info_devices[cam][1][rs.stream.color])
-						print("xx,yy,zz in imag coord: ", xx, yy, zz)	
+						#print("xx,yy,zz in imag coord: ", xx, yy, zz)	
 						#(xx,yy,zz) = rs.rs2_transform_point_to_point(calibration_info_devices[cam][2],[xx,yy,zz])
 						#print("xx,yy,zz after: ", xx, yy, zz)				
 						#label = f'{names[int(cls)]} {conf:.2f}'
-						label = f'{names[int(cls)]} {conf:.2f}, [{x:0.2f} {y:0.2f} {z:0.2f}]m'
+						label = f'{names[int(cls)]} {conf:.2f}, [{xx:0.2f} {yy:0.2f} {zz:0.2f}]m'
 						plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
 						(xc,yc,zc) = calibration_info_devices[cam][0].apply_transformation(np.array([xx,yy,zz]).reshape(3,1)).tolist()
 						#print("JAE: x,y,z ", x, y, z )
 						print("x,y,z in checker coord: ", xc, yc, zc)
 
 						bbox = np.array([xx1,xx2, yy1, yy2])
-						print("Jae -bbox:", bbox, xx2-xx1, yy2-yy1)
+						#print("Jae -bbox:", bbox, xx2-xx1, yy2-yy1)
 						#print("point_cloud size ", point_cloud.shape)
 						point_cloud = get_masked_pointcloud(point_cloud, bbox)
 						#depth_masked = np.asarray(convert_pointcloud_to_depth(point_cloud,calibration_info_devices[cam][1][rs.stream.depth]))
