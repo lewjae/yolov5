@@ -268,6 +268,8 @@ def detect():
 		if classify:
 			pred = apply_classifier(pred, modelc, img, im0s)
 
+		#im0h = np.empty((480,640,3),int)
+		
 		# Process detections
 		for i, det in enumerate(pred):  # detections per image
 
@@ -344,9 +346,11 @@ def detect():
 			print(f'{s}Done. ({t2 - t1:.3f}s)')
 
 			# Stream results
-			cv2.namedWindow(str(p), cv2.WINDOW_NORMAL)
-			cv2.imshow(str(p), im0)
-			
+			cv2.namedWindow("2D BBox: " + str(p), cv2.WINDOW_NORMAL)
+			cv2.imshow("2D BBox: " + str(p), im0)
+
+			#print("Jae im0 shape:", im0.shape)
+			#im0h = np.hstack((im0h,im0))
 
 			# Get the point cloud in the world-coordinates using the transformation
 			point_cloud = calibration_info_devices[cam][0].apply_transformation(point_cloud)
@@ -358,6 +362,10 @@ def detect():
 			#point_cloud_cumulative = np.column_stack( (point_cloud_cumulative, point_cloud ))
 
 			point_cloud_cumulative = np.column_stack( (point_cloud_cumulative, point_cloud ))
+
+		#cv2.namedWindow("2D BBox: ", cv2.WINDOW_NORMAL)
+		#cv2.imshow("2D BBox: ", im0h)
+
 		point_cloud_cumulative = np.delete(point_cloud_cumulative, 0, 1)
 			
 		# Get the bounding box for the pointcloud in image coordinates of the color imager

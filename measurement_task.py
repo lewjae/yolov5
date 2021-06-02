@@ -287,5 +287,5 @@ def new_visualise_measurements(im0s, devices, bounding_box_points_devices, lengt
 			cv2.putText(color_image, box_info, (50,50), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0) )
 			
 		# Visualise the results
-		cv2.imshow('3D Box: ' + device, color_image)
+		cv2.imshow('3D Box from PC: ' + device, color_image)
 		cv2.waitKey(1)
