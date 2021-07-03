@@ -61,9 +61,9 @@ class AppState:
         return self.translation + np.array((0, 0, self.distance), dtype=np.float32)
 
 
-state = AppState()
+#state = AppState()
 
-# Configure depth and color streams
+""" # Configure depth and color streams
 pipeline = rs.pipeline()
 config = rs.config()
 
@@ -84,7 +84,7 @@ pc = rs.pointcloud()
 decimate = rs.decimation_filter()
 decimate.set_option(rs.option.filter_magnitude, 2 ** state.decimate)
 colorizer = rs.colorizer()
-
+ """
 
 def mouse_cb(event, x, y, flags, param):
 
@@ -131,11 +131,11 @@ def mouse_cb(event, x, y, flags, param):
 
     state.prev_mouse = (x, y)
 
-
+""" 
 cv2.namedWindow(state.WIN_NAME, cv2.WINDOW_AUTOSIZE)
 cv2.resizeWindow(state.WIN_NAME, w, h)
 cv2.setMouseCallback(state.WIN_NAME, mouse_cb)
-
+ """
 
 def project(v):
     """project 3d vector array to 2d"""
@@ -260,7 +260,7 @@ def pointcloud(out, verts, texcoords, color, painter=True):
     # perform uv-mapping
     out[i[m], j[m]] = color[u[m], v[m]]
 
-
+""" 
 out = np.empty((h, w, 3), dtype=np.uint8)
 
 while True:
@@ -355,3 +355,4 @@ while True:
 
 # Stop streaming
 pipeline.stop()
+ """

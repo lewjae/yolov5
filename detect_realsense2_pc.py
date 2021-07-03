@@ -1,5 +1,4 @@
 import argparse
-#from home.jlew.git.yolov5.helper_functions import convert_depth_pixel_to_metric_coordinate
 import time
 from pathlib import Path
 
@@ -27,7 +26,7 @@ from helper_functions import get_boundary_corners_2D, convert_depth_frame_to_poi
 from measurement_task import calculate_boundingbox_points, new_visualise_measurements
 
 # Import for point cloud visulalization
-#from opencv_pointcloud_viewer import *
+from opencv_pointcloud_viewer import AppState, mouse_cb, project, view, line3d, grid, axes, frustum, pointcloud
 
 class LoadRS:  # capture Realsense stream
 	def __init__(self, pipe='rs', img_size=640, stride=32):
@@ -123,11 +122,15 @@ class LoadRS:  # capture Realsense stream
 				self.calibration_info_devices[key].append(value)
 
 		# Processing blocks
-		#self.state = AppState()
-		#pc = rs.pointcloud()
-		#decimate = rs.decimation_filter()
-		#decimate.set_option(rs.option.filter_magnitude, 2 ** state.decimate)
-
+		self.state = AppState()
+		pc = rs.pointcloud()
+		decimate = rs.decimation_filter()
+		decimate.set_option(rs.option.filter_magnitude, 2 ** self.state.decimate)
+		self.colorizer = rs.colorizer()
+		cv2.namedWindow(self.state.WIN_NAME, cv2.WINDOW_AUTOSIZE)
+		cv2.resizeWindow(self.state.WIN_NAME, resolution_width, resolution_height)
+		cv2.setMouseCallback(self.state.WIN_NAME, mouse_cb)
+		
 
 	def __iter__(self):
 		self.count = -1
@@ -153,18 +156,25 @@ class LoadRS:  # capture Realsense stream
 		img0 = []
 		img = []
 		sources = []
-		depth_frames = []
+		depth_images = []
+		#depth_colormaps = []
 		for (device, frame) in frames.items():
 			#color_images[device] = np.asarray(frame[rs.stream.color].get_data())
 			color_image = np.asarray(frame[rs.stream.color].get_data())
-			filtered_depth_frame = np.asarray(post_process_depth_frame(frame[rs.stream.depth], temporal_smooth_alpha=0.1, temporal_smooth_delta=80).get_data())
+			filtered_depth_frame = post_process_depth_frame(frame[rs.stream.depth], temporal_smooth_alpha=0.1, temporal_smooth_delta=80)
+			filtered_depth_image = np.asarray(filtered_depth_frame.get_data())
 			#filtered_depth_frame = np.asarray(frame[rs.stream.depth].get_data())
 			#print("[Jae]: color_image",color_image.shape)
 			img0.append(color_image)
 			#Letter Box, BGR to RGB, to 3x416x416
 			#temp = letterbox(color_image, new_shape=self.img_size)[0]
 			img.append(letterbox(color_image, new_shape=self.img_size)[0][:,:,::-1].transpose(2,0,1))
-			depth_frames.append(filtered_depth_frame)
+			
+			depth_images.append(filtered_depth_image)
+			
+			#depth_colormap = np. asarray(self.colorizer.colorize(filtered_depth_frame).get_data())
+			#depth_colormaps.append(depth_colormap)
+			
 			sources.append(device)
 
 
@@ -192,7 +202,7 @@ class LoadRS:  # capture Realsense stream
 		img = np.ascontiguousarray(img)
 		#depth_frames = np.ascontiguousarray(depth_frames)
 
-		return sources, img, img0, depth_frames, self.calibration_info_devices, self.roi_2D
+		return sources, img, img0, depth_images, self.calibration_info_devices, self.roi_2D
 
 	def __len__(self):
 		return 0
@@ -331,10 +341,10 @@ def detect():
 
 						bbox = np.array([xx1,xx2, yy1, yy2])
 						#print("Jae -bbox:", bbox, xx2-xx1, yy2-yy1)
-						#print("point_cloud size ", point_cloud.shape)
+						print("point_cloud size before", point_cloud.shape)
 						point_cloud = get_masked_pointcloud(point_cloud, bbox)
 						#depth_masked = np.asarray(convert_pointcloud_to_depth(point_cloud,calibration_info_devices[cam][1][rs.stream.depth]))
-						#print("point_cloud size ", point_cloud.shape)
+						print("point_cloud size after", point_cloud.shape)
 			
 						#Show depth
 						#depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_masked, alpha=0.03), cv2.COLORMAP_JET)
@@ -359,8 +369,6 @@ def detect():
 			# The object placed has its height in the negative direction of z-axis due to the right-hand coordinate system
 			point_cloud = get_clipped_pointcloud(point_cloud, roi_2d)
 			point_cloud = point_cloud[:,point_cloud[2,:]<-depth_threshold]
-			#point_cloud_cumulative = np.column_stack( (point_cloud_cumulative, point_cloud ))
-
 			point_cloud_cumulative = np.column_stack( (point_cloud_cumulative, point_cloud ))
 
 		#cv2.namedWindow("2D BBox: ", cv2.WINDOW_NORMAL)
