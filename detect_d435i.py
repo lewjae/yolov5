@@ -71,6 +71,7 @@ class LoadRS:  # capture Realsense stream
 		# Get the intrinsics of the realsense device 
 		intrinsics_devices = self.device_manager.get_device_intrinsics(frames)
 
+		""""
 		# Set the chessboard parameters for calibration 
 		chessboard_params = [chessboard_height, chessboard_width, square_size] 
 			
@@ -106,7 +107,7 @@ class LoadRS:  # capture Realsense stream
 		print("Calibration completed... \n\nPlace the box in the field of view of the devices...")
 		#print("transformation_devices: ", transformation_devices)
 		#print("roi_2D: ",self.roi_2D)           
-
+		"""
 		# Enable the emitter of the devices
 		self.device_manager.enable_emitter(True)
 
@@ -114,15 +115,13 @@ class LoadRS:  # capture Realsense stream
 		self.device_manager.load_settings_json("./HighResHighAccuracyPreset.json")
 
 		# Get the extrinsics of the device to be used later
-		extrinsics_devices = self.device_manager.get_depth_to_color_extrinsics(frames)
+		# extrinsics_devices = self.device_manager.get_depth_to_color_extrinsics(frames)
 
 		# Get the calibration info as a dictionary to help with display of the measurements onto the color image instead of infra red image
 		self.calibration_info_devices = defaultdict(list)
-		for calibration_info in (transformation_devices, intrinsics_devices, extrinsics_devices):
-			for key, value in calibration_info.items():
-				self.calibration_info_devices[key].append(value)
-
-
+		#for calibration_info in intrinsics_devices:
+		for key, value in intrinsics_devices.items():
+			self.calibration_info_devices[key].append(value)
 
 	def __iter__(self):
 		self.count = -1
@@ -177,7 +176,7 @@ class LoadRS:  # capture Realsense stream
 		img = np.ascontiguousarray(img)
 		#depth_frames = np.ascontiguousarray(depth_frames)
 
-		return sources, img, img0, depth_frames, self.calibration_info_devices, self.roi_2D
+		return sources, img, img0, depth_frames, self.calibration_info_devices
 
 	def __len__(self):
 		return 0
@@ -229,10 +228,10 @@ def detect():
 	img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
 	_ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
 	
-	for path, img, im0s, depth_frames, calibration_info_devices, roi_2d in dataset:
-		
-		#point_cloud = convert_depth_frame_to_pointcloud(depth_frames,calibration_info_devices[device][1][rs.stream.depth]))
-		point_cloud_cumulative = np.array([-1, -1, -1]).transpose()
+	# Initialize cv-detected item dictionary
+	detected = {}
+
+	for path, img, im0s, depth_frames, calibration_info_devices in dataset:
 
 		img = torch.from_numpy(img).to(device)
 		img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -263,11 +262,10 @@ def detect():
 			s += '%s '%cam
 			p = Path(cam)  # to Path
 			s += '%gx%g ' % img.shape[2:]  # print string
-	
-			# Gathered point_cloud from each camera
-			point_cloud = convert_depth_frame_to_pointcloud(depth_image, calibration_info_devices[cam][1][rs.stream.depth])
-			point_cloud = np.asanyarray(point_cloud)
 
+			# Initialize the cv-detected item dictionary
+			detected[cam] = {}
+			#detected[cam] = defaultdict(lambda: 0)
 			#print("R,t: ", cam, calibration_info_devices[cam][0].pose_mat)
 			gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
 			if len(det):
@@ -276,13 +274,10 @@ def detect():
 				bbox = det[:, :4].cpu().numpy()
 				#print("Jae,  scaled det[:,:4] ", det[:,:4])
 				#print("\nJae - bbox ",bbox.shape, bbox)
-				# Print results
-				for c in det[:, -1].unique():
-					n = (det[:, -1] == c).sum()  # detections per class
-					s += f'{n} {names[int(c)]}s, '  # add to string
 				
 				# Write results
-				for *xyxy, conf, cls in reversed(det):
+				#print("det: ",det)
+				for *xyxy, conf, cls in det:
 
 					if view_img:  # Add bbox to image
 
@@ -291,35 +286,40 @@ def detect():
 
 						# convert image pixel into meters
 						z = depth_image[int(yp),int(xp)]*depth_scale  # center
-						(x,y,z) = rs.rs2_deproject_pixel_to_point(calibration_info_devices[cam][1][rs.stream.color],[xp,yp],z)
-						print("x,y,z inimag coord:   ", x,y,z)
-						(xx,yy,zz) = convert_depth_pixel_to_metric_coordinate(z,xp,yp,calibration_info_devices[cam][1][rs.stream.color])
+						if z < 1.2:
+							(x,y,z) = rs.rs2_deproject_pixel_to_point(calibration_info_devices[cam][0][rs.stream.color],[xp,yp],z)
+							#print("x,y,z inimag coord:   ", x,y,z)
+							#(xx,yy,zz) = convert_depth_pixel_to_metric_coordinate(z,xp,yp,calibration_info_devices[cam][0][rs.stream.color])
 						
-						print("xx,yy,zz in imag coord: ", xx, yy, zz)	
-						#(xx,yy,zz) = rs.rs2_transform_point_to_point(calibration_info_devices[cam][2],[xx,yy,zz])
-						#print("xx,yy,zz after: ", xx, yy, zz)				
-						#label = f'{names[int(cls)]} {conf:.2f}'
-						label = f'{names[int(cls)]} {conf:.2f}, [{x:0.2f} {y:0.2f} {z:0.2f}]m'
-						plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
-						(xc,yc,zc) = calibration_info_devices[cam][0].apply_transformation(np.array([xx,yy,zz]).reshape(3,1)).tolist()
-						#print("JAE: x,y,z ", x, y, z )
-						#print("x,y,z in checker coord: ", xc, yc, zc)
-			
-						#Show depth
-						#depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_masked, alpha=0.03), cv2.COLORMAP_JET)
-						#cv2.namedWindow('Depth', cv2.WINDOW_AUTOSIZE)
-						#cv2.imshow('Depth', depth_colormap)
+							#print("xx,yy,zz in imag coord: ", xx, yy, zz)	
+							#(xx,yy,zz) = rs.rs2_transform_point_to_point(calibration_info_devices[cam][2],[xx,yy,zz])
+							#print("xx,yy,zz after: ", xx, yy, zz)				
+							#label = f'{names[int(cls)]} {conf:.2f}'
+							label = f'{names[int(cls)]} {conf:.2f}, [{x:0.2f} {y:0.2f} {z:0.2f}]m'
+							plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
+							if names[int(cls)] in detected[cam]:
+								detected[cam][names[int(cls)]] += 1
+							else:
+								detected[cam][names[int(cls)]] =1
+						else:
+							print("item a far way: ",names[int(cls)], z)
+				"""
+				# Print results
+				for c in det[:, -1].unique():
+					n = (det[:, -1] == c).sum()  # detections per class
+					s += f'{n} {names[int(c)]}s, '  # add to string
+
+					detected[cam][names[int(c)]] = n.item()
+				"""
 			else:
 				print("Nothing detected")
 			# Print time (inference + NMS)
 			print(f'{s}Done. ({t2 - t1:.3f}s)')
+			print("Detected items: ", detected)
 
 			# Stream results
-			cv2.namedWindow("2D BBox: " + str(p), cv2.WINDOW_NORMAL)
-			cv2.imshow("2D BBox: " + str(p), im0)
-
-			#print("Jae im0 shape:", im0.shape)
-			#im0h = np.hstack((im0h,im0))
+			cv2.namedWindow(str(i) + ": " + str(p), cv2.WINDOW_NORMAL)
+			cv2.imshow(str(i) + ": " + str(p), im0)
 		
 	print(f'Done. ({time.time() - t0:.3f}s)')
 
