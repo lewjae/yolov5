@@ -292,10 +292,10 @@ def detect():
 						# convert image pixel into meters
 						z = depth_image[int(yp),int(xp)]*depth_scale  # center
 						(x,y,z) = rs.rs2_deproject_pixel_to_point(calibration_info_devices[cam][1][rs.stream.color],[xp,yp],z)
-						#print("x,y,z inimag coord:   ", x,y,z)
+						print("x,y,z inimag coord:   ", x,y,z)
 						(xx,yy,zz) = convert_depth_pixel_to_metric_coordinate(z,xp,yp,calibration_info_devices[cam][1][rs.stream.color])
 						
-						#print("xx,yy,zz in imag coord: ", xx, yy, zz)	
+						print("xx,yy,zz in imag coord: ", xx, yy, zz)	
 						#(xx,yy,zz) = rs.rs2_transform_point_to_point(calibration_info_devices[cam][2],[xx,yy,zz])
 						#print("xx,yy,zz after: ", xx, yy, zz)				
 						#label = f'{names[int(cls)]} {conf:.2f}'
@@ -303,7 +303,7 @@ def detect():
 						plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
 						(xc,yc,zc) = calibration_info_devices[cam][0].apply_transformation(np.array([xx,yy,zz]).reshape(3,1)).tolist()
 						#print("JAE: x,y,z ", x, y, z )
-						print("x,y,z in checker coord: ", xc, yc, zc)
+						#print("x,y,z in checker coord: ", xc, yc, zc)
 			
 						#Show depth
 						#depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_masked, alpha=0.03), cv2.COLORMAP_JET)
