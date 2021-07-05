@@ -180,8 +180,36 @@ class LoadRS:  # capture Realsense stream
 
 	def __len__(self):
 		return 0
+"""
+def consolidate(results, rs_results):
+    agg_list = []
+    for cam, predict in results.items():
+        agg_list.append(predict)
 
+    agg_list.append(rs_results["webcam.jpg"])
 
+    union_results = defaultdict(set)
+    #Aggregate all camera predictions
+    for d in agg_list:
+       	for k,v in d.items():
+            union_results[k].add(v)
+    #Assuming no false positives, keep maximum of all counts detected by each camera for an item
+    max_dict = {}
+    max_dict["detected_items"] = {label_to_itemId_map[k] : max(union_results[k]) for k in union_results}
+    max_dict["undetected_items"] = rs_results["undetected_item"]
+
+    return max_dict
+"""
+def aggregate(detected_items):
+
+	items_dict = defaultdict(set)
+	for _, val in detected_items.items():
+		for  k, v in val.items():
+			items_dict[k].add(v)	
+
+	agg_dict = {}
+	agg_dict = {k : max(items_dict[k]) for k in items_dict}
+	return agg_dict
 
 def detect():
 	#source, weights, view_img, save_txt, imgsz = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
@@ -316,6 +344,7 @@ def detect():
 			# Print time (inference + NMS)
 			print(f'{s}Done. ({t2 - t1:.3f}s)')
 			print("Detected items: ", detected)
+			print("Aggregated: ", aggregate(detected))
 
 			# Stream results
 			cv2.namedWindow(str(i) + ": " + str(p), cv2.WINDOW_NORMAL)
@@ -357,10 +386,8 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
 	img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
 	return img, ratio, (dw, dh)
 
-
-
-
 if __name__ == '__main__':
+	"""
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--weights', nargs='+', type=str, default='yolov5s.pt', help='model.pt path(s)')
 	parser.add_argument('--source', type=str, default='rs', help='source')  # file/folder, 0 for webcam
@@ -380,7 +407,7 @@ if __name__ == '__main__':
 	parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
 	opt = parser.parse_args()
 	print(opt)
-
+	
 	with torch.no_grad():
 		if opt.update:  # update all models (to fix SourceChangeWarning)
 			for opt.weights in ['yolov5s.pt', 'yolov5m.pt', 'yolov5l.pt', 'yolov5x.pt']:
@@ -388,5 +415,6 @@ if __name__ == '__main__':
 				strip_optimizer(opt.weights)
 		else:
 			detect()
-
+	"""
+	detect()
 
