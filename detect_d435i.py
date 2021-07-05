@@ -37,7 +37,7 @@ class LoadRS:  # capture Realsense stream
 		# Define some constants 
 		resolution_width = 640
 		resolution_height = 480
-		frame_rate = 15 #15  # fps
+		frame_rate = 30 #15  # fps
 		dispose_frames_for_stablisation = 30  # frames
 		
 		chessboard_width = 6 # squares
@@ -61,61 +61,15 @@ class LoadRS:  # capture Realsense stream
 		assert( len(self.device_manager._available_devices) > 0 )
 
 		#self.align = rs.align(rs.stream.color)
-		"""
-		1: Calibration
-		Calibrate all the available devices to the world co-ordinates.
-		For this purpose, a chessboard printout for use with opencv based calibration process is needed.
-			
-		"""
-		
+
 		# Get the intrinsics of the realsense device 
 		intrinsics_devices = self.device_manager.get_device_intrinsics(frames)
 
-		""""
-		# Set the chessboard parameters for calibration 
-		chessboard_params = [chessboard_height, chessboard_width, square_size] 
-			
-		# Estimate the pose of the chessboard in the world coordinate using the Kabsch Method
-		calibrated_device_count = 0
-		while calibrated_device_count < len(self.device_manager._available_devices):
-			frames = self.device_manager.poll_frames()
-			pose_estimator = PoseEstimation(frames, intrinsics_devices, chessboard_params)
-			transformation_result_kabsch  = pose_estimator.perform_pose_estimation()
-			object_point = pose_estimator.get_chessboard_corners_in3d()
-			calibrated_device_count = 0
-			for device in self.device_manager._available_devices:
-				if not transformation_result_kabsch[device][0]:
-					print("[Jae] device: ",device)
-					print("Place the chessboard on the plane where the object needs to be detected..")
-				else:
-					calibrated_device_count += 1
-
-			# Save the transformation object for all devices in an array to use for measurements
-		transformation_devices={}
-		chessboard_points_cumulative_3d = np.array([-1,-1,-1]).transpose()
-		for device in self.device_manager._available_devices:
-			transformation_devices[device] = transformation_result_kabsch[device][1].inverse()
-			points3D = object_point[device][2][:,object_point[device][3]]
-			points3D = transformation_devices[device].apply_transformation(points3D)
-			chessboard_points_cumulative_3d = np.column_stack( (chessboard_points_cumulative_3d,points3D) )
-
-			# Extract the bounds between which the object's dimensions are needed
-			# It is necessary for this demo that the object's length and breath is smaller than that of the chessboard
-		chessboard_points_cumulative_3d = np.delete(chessboard_points_cumulative_3d, 0, 1)
-		self.roi_2D = get_boundary_corners_2D(chessboard_points_cumulative_3d)
-		print(self.roi_2D)
-		print("Calibration completed... \n\nPlace the box in the field of view of the devices...")
-		#print("transformation_devices: ", transformation_devices)
-		#print("roi_2D: ",self.roi_2D)           
-		"""
 		# Enable the emitter of the devices
 		self.device_manager.enable_emitter(True)
 
 		# Load the JSON settings file in order to enable High Accuracy preset for the realsense
 		self.device_manager.load_settings_json("./HighResHighAccuracyPreset.json")
-
-		# Get the extrinsics of the device to be used later
-		# extrinsics_devices = self.device_manager.get_depth_to_color_extrinsics(frames)
 
 		# Get the calibration info as a dictionary to help with display of the measurements onto the color image instead of infra red image
 		self.calibration_info_devices = defaultdict(list)
@@ -180,26 +134,9 @@ class LoadRS:  # capture Realsense stream
 
 	def __len__(self):
 		return 0
-"""
-def consolidate(results, rs_results):
-    agg_list = []
-    for cam, predict in results.items():
-        agg_list.append(predict)
 
-    agg_list.append(rs_results["webcam.jpg"])
-
-    union_results = defaultdict(set)
-    #Aggregate all camera predictions
-    for d in agg_list:
-       	for k,v in d.items():
-            union_results[k].add(v)
-    #Assuming no false positives, keep maximum of all counts detected by each camera for an item
-    max_dict = {}
-    max_dict["detected_items"] = {label_to_itemId_map[k] : max(union_results[k]) for k in union_results}
-    max_dict["undetected_items"] = rs_results["undetected_item"]
-
-    return max_dict
-"""
+# Aggregate for detected items from multiple cameras
+# Assuming that each camera has minimu false positives, take union of all detected items and compute maximum
 def aggregate(detected_items):
 
 	items_dict = defaultdict(set)
@@ -211,6 +148,7 @@ def aggregate(detected_items):
 	agg_dict = {k : max(items_dict[k]) for k in items_dict}
 	return agg_dict
 
+# YoloV5 object detection inferencer
 def detect():
 	#source, weights, view_img, save_txt, imgsz = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
 	source = "rs"
@@ -225,7 +163,8 @@ def detect():
 	classes = [0,1,2,3,4,5,6]
 	agnostic_nms = 'store_true'
 	device = ''
-	depth_threshold = 0.01
+	cut_off_distance = 1.1  #in meter. cuf-off distance for object detection
+
 	# Initialize
 	set_logging()
 	device = select_device(device)
@@ -314,7 +253,7 @@ def detect():
 
 						# convert image pixel into meters
 						z = depth_image[int(yp),int(xp)]*depth_scale  # center
-						if z < 1.2:
+						if z < cut_off_distance:
 							(x,y,z) = rs.rs2_deproject_pixel_to_point(calibration_info_devices[cam][0][rs.stream.color],[xp,yp],z)
 							#print("x,y,z inimag coord:   ", x,y,z)
 							#(xx,yy,zz) = convert_depth_pixel_to_metric_coordinate(z,xp,yp,calibration_info_devices[cam][0][rs.stream.color])
@@ -331,25 +270,18 @@ def detect():
 								detected[cam][names[int(cls)]] =1
 						else:
 							print("item a far way: ",names[int(cls)], z)
-				"""
-				# Print results
-				for c in det[:, -1].unique():
-					n = (det[:, -1] == c).sum()  # detections per class
-					s += f'{n} {names[int(c)]}s, '  # add to string
 
-					detected[cam][names[int(c)]] = n.item()
-				"""
-			else:
-				print("Nothing detected")
 			# Print time (inference + NMS)
 			print(f'{s}Done. ({t2 - t1:.3f}s)')
-			print("Detected items: ", detected)
-			print("Aggregated: ", aggregate(detected))
 
 			# Stream results
 			cv2.namedWindow(str(i) + ": " + str(p), cv2.WINDOW_NORMAL)
 			cv2.imshow(str(i) + ": " + str(p), im0)
 		
+		print("Detected items: ", detected)
+		print("Aggregated: ", aggregate(detected))
+		print(" ")
+
 	print(f'Done. ({time.time() - t0:.3f}s)')
 
 
