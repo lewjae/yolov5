@@ -238,7 +238,7 @@ def detect():
 			if len(det):
 				# Rescale boxes from img_size to im0 size
 				det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
-				bbox = det[:, :4].cpu().numpy()
+				#bbox = det[:, :4].cpu().numpy()
 				#print("Jae,  scaled det[:,:4] ", det[:,:4])
 				#print("\nJae - bbox ",bbox.shape, bbox)
 				
