@@ -155,17 +155,21 @@ class DeviceManager:
         sensor = pipeline_profile.get_device().first_depth_sensor()
         sensor.set_option(rs.option.emitter_enabled, 1 if enable_ir_emitter else 0)
         self._enabled_devices[device_serial] = (Device(pipeline, pipeline_profile))
+        return pipeline, pipeline_profile
 
     def enable_all_devices(self, enable_ir_emitter=False):
         """
         Enable all the Intel RealSense Devices which are connected to the PC
 
         """
+        mypipelines = {}
         print(str(len(self._available_devices)) + " devices have been found")
 
         for serial in self._available_devices:
-            self.enable_device(serial, enable_ir_emitter)
-
+            pipeline, pipeline_profile = self.enable_device(serial, enable_ir_emitter)
+            mypipelines[serial] = {"pipeline": pipeline, "pipeline_profile": pipeline_profile}
+        return mypipelines
+        
     def enable_emitter(self, enable_ir_emitter=True):
         """
         Enable/Disable the emitter of the intel realsense device

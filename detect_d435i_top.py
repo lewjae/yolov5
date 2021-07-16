@@ -2,6 +2,7 @@ import argparse
 #from home.jlew.git.yolov5.helper_functions import convert_depth_pixel_to_metric_coordinate
 import time
 from pathlib import Path
+from types import FrameType
 
 import cv2
 from numpy.core.fromnumeric import round_
@@ -49,10 +50,11 @@ class LoadRS:  # capture Realsense stream
         rs_config.enable_stream(rs.stream.depth, resolution_width, resolution_height, rs.format.z16, frame_rate)
         rs_config.enable_stream(rs.stream.infrared, 1, resolution_width, resolution_height, rs.format.y8, frame_rate)
         rs_config.enable_stream(rs.stream.color, resolution_width, resolution_height, rs.format.bgr8, frame_rate)
+        self.align_function = rs.align(rs.stream.color)
 
         # Use the device manager class to enable the devices and get the frames
         self.device_manager = DeviceManager(rs.context(), rs_config)
-        self.device_manager.enable_all_devices()
+        self.mypipelines = self.device_manager.enable_all_devices()
         
         # Allow some frames for the auto-exposure controller to stablise
         for frame in range(dispose_frames_for_stablisation):
@@ -94,7 +96,7 @@ class LoadRS:  # capture Realsense stream
             #frames = self.pipeline.wait_for_frames()
         frames = self.device_manager.poll_frames()
         
-        #frames = self.align.process(frames)
+        
         # Calculate the pointcloud using the depth frames from all the devices
         #point_cloud = calculate_cumulative_pointcloud(frames, self.calibration_info_devices, self.roi_2D)
         #color_images = {}
@@ -102,15 +104,21 @@ class LoadRS:  # capture Realsense stream
         img = []
         sources = []
         depth_frames = []
-        for (device, frame) in frames.items():
+        
+        for (device, frame) in self.mypipelines.items():
+            print("frame1: ", frame)
+            frame = frame["pipeline"]
+            #print("frame2: ", frame)
+            frame = frame.wait_for_frames()
+            #print("frame3: ", frame)
+            frame = self.align_function.process(frame.as_frameset())
             #color_images[device] = np.asarray(frame[rs.stream.color].get_data())
-            color_image = np.asarray(frame[rs.stream.color].get_data())
+            color_image = np.asarray(frame.get_color_frame().get_data())
             #filtered_depth_frame = np.asarray(post_process_depth_frame(frame[rs.stream.depth], temporal_smooth_alpha=0.1, temporal_smooth_delta=80).get_data())
-            filtered_depth_frame = np.asarray(frame[rs.stream.depth].get_data())
+            filtered_depth_frame = np.asarray(frame.get_depth_frame().get_data())
             #print("[Jae]: color_image",color_image.shape)
             img0.append(color_image)
-            #Letter Box, BGR to RGB, to 3    def __len__(self):
-            #temp = letterbox(color_image, new_shape=self.img_size)[0]
+            #Letter Box, BGR to RGB, to 3    
             img.append(letterbox(color_image, new_shape=self.img_size)[0][:,:,::-1].transpose(2,0,1))
             depth_frames.append(filtered_depth_frame)
             sources.append(device)
@@ -131,7 +139,7 @@ class LoadRS:  # capture Realsense stream
         #depth_frames = np.ascontiguousarray(depth_frames)
 
         return sources, img, img0, depth_frames, self.calibration_info_devices
-
+    
     def __len__(self):
         return 0
 
