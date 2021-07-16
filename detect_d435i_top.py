@@ -157,7 +157,7 @@ def detect():
     imgsz = 640
 
     augment = 'store_true'
-    conf_thres = 0.5 
+    conf_thres = 0.75 
     iou_thres = 0.45 
     classes = [0,1,2,3,4,5,6]
     agnostic_nms = 'store_true'
@@ -266,8 +266,8 @@ def detect():
                             #print("xx,yy,zz in imag coord: ", xx, yy, zz)	
                             #(xx,yy,zz) = rs.rs2_transform_point_to_point(calibration_info_devices[cam][2],[xx,yy,zz])
                             #print("xx,yy,zz after: ", xx, yy, zz)				
-                            #label = f'{names[int(cls)]} {conf:.2f}'
-                            label = f'{names[int(cls)]} {conf:.2f}, [{x:0.2f} {y:0.2f} {z:0.2f}]m'
+                            label = f'{names[int(cls)]} {conf:.2f}'
+                            #label = f'{names[int(cls)]} {conf:.2f}, [{x:0.2f} {y:0.2f} {z:0.2f}]m'
                             plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
                             if names[int(cls)] in detected[cam]:
                                 detected[cam][names[int(cls)]] += 1

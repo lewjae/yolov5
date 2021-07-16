@@ -286,16 +286,13 @@ def detect():
 			cv2.imshow(str(i) + ": " + str(p), im0)
 		
 		print("Detected items: ", detected)
-		print("Aggregated: ", aggregate(detected))
+		results = aggregate(detected)
+		print("Aggregated: ", results)
 		print(" ")
-
+		return jsonify(results)
 	print(f'Done. ({time.time() - t0:.3f}s)')
-
-	with open('api_data_camera.json') as f:
-		data = json.load(f)
+	return jsonify(results)
 	
-	rs_results =requests.post('http://localhost:8000/detect', json=data).json()
-	print("[Jae] api test")
 
 def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
 	# Resize and pad image while meeting stride-multiple constraints
@@ -360,5 +357,5 @@ if __name__ == '__main__':
 		else:
 			detect()
 	"""
-	detect()
+	app.run(host='0.0.0.0', port=8000)
 
