@@ -109,7 +109,7 @@ class LoadRS:  # capture Realsense stream
             filtered_depth_frame = np.asarray(frame[rs.stream.depth].get_data())
             #print("[Jae]: color_image",color_image.shape)
             img0.append(color_image)
-            #Letter Box, BGR to RGB, to 3x416x416
+            #Letter Box, BGR to RGB, to 3    def __len__(self):
             #temp = letterbox(color_image, new_shape=self.img_size)[0]
             img.append(letterbox(color_image, new_shape=self.img_size)[0][:,:,::-1].transpose(2,0,1))
             depth_frames.append(filtered_depth_frame)
