@@ -299,6 +299,12 @@ def detect():
                         else:
                             print("item a far way: ",names[int(cls)], z)
 
+            else:
+                if i == 0:
+                    depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channel
+                    bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), gray_color, im0)
+                    cv2.namedWindow('Undetected Items', cv2.WINDOW_NORMAL)
+                    cv2.imshow('Undetected Items', bg_removed)
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
 
