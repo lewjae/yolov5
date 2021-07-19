@@ -106,11 +106,8 @@ class LoadRS:  # capture Realsense stream
         depth_frames = []
         
         for (device, frame) in self.mypipelines.items():
-            print("frame1: ", frame)
             frame = frame["pipeline"]
-            #print("frame2: ", frame)
             frame = frame.wait_for_frames()
-            #print("frame3: ", frame)
             frame = self.align_function.process(frame.as_frameset())
             #color_images[device] = np.asarray(frame[rs.stream.color].get_data())
             color_image = np.asarray(frame.get_color_frame().get_data())
