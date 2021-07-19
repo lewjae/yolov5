@@ -287,7 +287,6 @@ def detect():
                                 xywh = xyxy2xywh(torch.tensor(xyxy).view(1, 4)).view(-1).tolist()
                                 # convert a list of float to a list of int
                                 xywh = list(map(int,xywh))
-                                xywh_bar = [320,420, 210,120] # cover the the topstand bar from the depth detection
                                 covered_img = cover_detected_items(covered_img, xywh_bar, gray_color)
                                 covered_img = cover_detected_items(covered_img, xywh, gray_color)
                                 depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channel
