@@ -325,7 +325,7 @@ class LoadRS:  # capture Realsense stream
 		r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
 		if not scaleup:  # only scale down, do not scale up (for better test mAP)
 			r = min(r, 1.0)
-
+      
 		# Compute padding
 		ratio = r, r  # width, height ratios
 		new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
@@ -359,6 +359,7 @@ def get_detected_items():
 	return str(dataset.detected)
 
 
+
 if __name__ == '__main__':
 	"""
 	parser = argparse.ArgumentParser()
@@ -389,6 +390,7 @@ if __name__ == '__main__':
 		else:
 			detect()
 	"""
+
 	app.run(host='0.0.0.0', debug=False, threaded=False)
 
 
