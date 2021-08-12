@@ -188,10 +188,10 @@ def run_demo():
 
 
             # Get the bounding box for the pointcloud in image coordinates of the color imager
-            bounding_box_points_color_image, length, width, height = calculate_boundingbox_points(point_cloud, calibration_info_devices )
+            #bounding_box_points_color_image, length, width, height = calculate_boundingbox_points(point_cloud, calibration_info_devices )
 
             # Draw the bounding box points on the color image and visualise the results
-            visualise_measurements(frames_devices, bounding_box_points_color_image, length, width, height)
+            #visualise_measurements(frames_devices, bounding_box_points_color_image, length, width, height)
 
     except KeyboardInterrupt:
         print("The program was interupted by the user. Closing the program...")
