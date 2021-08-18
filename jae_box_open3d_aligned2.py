@@ -78,6 +78,8 @@ def run_demo():
         # Get the intrinsics of the realsense device 
         intrinsics_devices = device_manager.get_device_intrinsics(frames)
         
+        print("Jae- intrinsics_devices: ", intrinsics_devices)
+        
         # Set the chessboard parameters for calibration 
         chessboard_params = [chessboard_height, chessboard_width, square_size] 
         
