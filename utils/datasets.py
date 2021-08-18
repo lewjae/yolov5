@@ -265,7 +265,7 @@ class LoadStreams:  # multiple IP or RTSP cameras
                 sources = [x.strip() for x in f.read().strip().splitlines() if len(x.strip())]
         else:
             #sources = [sources]
-            sources = ['0','1']
+            sources = ['4','6']
 
         n = len(sources)
         self.imgs = [None] * n

@@ -130,8 +130,13 @@ def detect(save_img=False):
 
         # We will be removing the background of objects more than
         #  clipping_distance_in_meters meters away
+<<<<<<< Updated upstream
     depth_scale = 0.001 #0.0002500000118743628    
     clipping_distance_in_meters = 0.75 #1.02 #1 meter
+=======
+    depth_scale =0.0002500000118743628    
+    clipping_distance_in_meters = 0.82 #1 meter
+>>>>>>> Stashed changes
     clipping_distance = clipping_distance_in_meters / depth_scale
 
 
@@ -256,8 +261,8 @@ def detect(save_img=False):
             #bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), grey_color, im0)
             bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), grey_color, covered_img)
 
-            cv2.namedWindow("covered_img", cv2.WINDOW_NORMAL)
-            cv2.imshow("covered_img", covered_img)
+            #cv2.namedWindow("covered_img", cv2.WINDOW_NORMAL)
+            #cv2.imshow("covered_img", covered_img)
             cv2.namedWindow('RealSense', cv2.WINDOW_NORMAL)
             cv2.imshow('RealSense', bg_removed)
             """

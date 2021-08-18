@@ -54,18 +54,27 @@ def run_demo():
         # Allow some frames for the auto-exposure controller to stablise
         for frame in range(dispose_frames_for_stablisation):
             frames = device_manager.poll_frames()
+
+        frames = {}
+        for (device, frame) in mypipelines.items():
+            frame = frame["pipeline"]
+            frame = frame.wait_for_frames()
+            frame = align_function.process(frame.as_frameset())
+            frames[device] = frame 
         assert( len(device_manager._available_devices) > 0 )
 
-        for device, frame in frames.items():
-            print("frame: ",device, rs.stream.color)
+        #for device, frame in frames.items():
+            #print("frame: ",device, rs.stream.color)
             #align = rs.align(frame[rs.stream.color])
 
         """
+
         1: Calibration
         Calibrate all the available devices to the world co-ordinates.
         For this purpose, a chessboard printout for use with opencv based calibration process is needed.
         
-        """
+        """ 
+        print("frames: ",frame.get_profile().as_video_stream_profile().get_intrinsics())
         # Get the intrinsics of the realsense device 
         intrinsics_devices = device_manager.get_device_intrinsics(frames)
         
@@ -76,6 +85,7 @@ def run_demo():
         calibrated_device_count = 0
         while calibrated_device_count < len(device_manager._available_devices):
             frames = device_manager.poll_frames()
+            print("Old frames: ", frames)
             pose_estimator = PoseEstimation(frames, intrinsics_devices, chessboard_params)
             transformation_result_kabsch  = pose_estimator.perform_pose_estimation()
             object_point = pose_estimator.get_chessboard_corners_in3d()
@@ -85,6 +95,13 @@ def run_demo():
                     print("Place the chessboard on the plane where the object needs to be detected..")
                 else:
                     calibrated_device_count += 1
+
+        for (device, frame) in mypipelines.items():
+            frame = frame["pipeline"]
+            frame = frame.wait_for_frames()
+            frame = align_function.process(frame.as_frameset())
+            frames[device] = frame
+            print("new frames: ", frames)
 
         # Save the transformation object for all devices in an array to use for measurements
         transformation_devices={}
@@ -166,7 +183,8 @@ def run_demo():
                 pose_mat = calibration_info_devices[device][0].pose_mat
                 print("pose_mat: ", device, pose_mat)
 
-                intrinsics = calibration_info_devices[device][1][rs.stream.color]
+                print(calibration_info_devices[device][1])
+                intrinsics = calibration_info_devices[device][1][rs.stream.depth]
 
                 w = intrinsics.width
                 h = intrinsics.height
