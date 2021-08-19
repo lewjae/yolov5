@@ -31,7 +31,7 @@ from helper_functions import get_boundary_corners_2D, convert_depth_frame_to_poi
 from measurement_task import calculate_boundingbox_points, new_visualise_measurements
 
 # Import flask stuff and api
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 import requests
 import json
 
@@ -319,13 +319,13 @@ class LoadRS:  # capture Realsense stream
                                     # save as image from numpy array value of bg_removed
                                     img = Image.fromarray(bg_removed, 'RGB')
                                     # saves as jpg file for further eval
-                                    img.save('undetected-items.jpg')
+                                    img.save('undetected_items.jpg')
 
                                     # opens prev set .jpg fil as a binary
-                                    with open('undetected-items.jpg', 'rb') as image_file:
+                                    with open('undetected_items.jpg', 'rb') as image_file:
                                         # encodes to proper browser compatible base64 format
-                                        encoded_string = base64.b64encode(image_file.read())
-                                        self.cameras_views['unrecognized-items'] = encoded_string
+                                        encoded_string = base64.standard_b64encode(image_file.read())
+                                        self.cameras_views['unrecognized_items'] = encoded_string.decode('utf-8')
 
                                     cv2.namedWindow('Undetected Items', cv2.WINDOW_NORMAL)
                                     cv2.imshow('Undetected Items', bg_removed)
@@ -342,13 +342,13 @@ class LoadRS:  # capture Realsense stream
                         # save as image from numpy array value of bg_removed
                         img = Image.fromarray(bg_removed, 'RGB')
                         # saves as jpg file for further eval
-                        img.save('undetected-items.jpg')
+                        img.save('undetected_items.jpg')
 
                         # opens prev set .jpg file as a binary
-                        with open('undetected-items.jpg', 'rb') as image_file:
+                        with open('undetected_items.jpg', 'rb') as image_file:
                             # encodes to proper browser compatible base64 format 
-                            encoded_string = base64.b64encode(image_file.read())
-                            self.cameras_views['unrecognized-items'] = encoded_string
+                            encoded_string = base64.standard_b64encode(image_file.read())
+                            self.cameras_views['unrecognized_items'] = encoded_string.decode('utf-8')
 
                         cv2.namedWindow('Undetected Items', cv2.WINDOW_NORMAL)
                         cv2.imshow('Undetected Items', bg_removed)
@@ -358,13 +358,13 @@ class LoadRS:  # capture Realsense stream
                 # saves as image from numpy array value of im0
                 img = Image.fromarray(im0, 'RGB')
                 # saves as jpg file for further eval
-                img.save('camera-%s.jpg'%(str(i)))
+                img.save('camera_%s.jpg'%(str(i)))
 
                 # opens prev set .jpg file as a binary
-                with open('camera-%s.jpg'%(str(i)), 'rb') as image_file:
+                with open('camera_%s.jpg'%(str(i)), 'rb') as image_file:
                     # encodes to proper browser compatible base64 format 
-                    encoded_string = base64.b64encode(image_file.read())
-                    self.cameras_views['camera-%s'%(str(i))] = encoded_string
+                    encoded_string = base64.standard_b64encode(image_file.read())
+                    self.cameras_views['camera_%s'%(str(i))] = encoded_string.decode('utf-8')
 
                 # Stream results
                 cv2.namedWindow(str(i) + ": " + str(p), cv2.WINDOW_NORMAL)
@@ -445,7 +445,7 @@ def get_detected_items():
 @app.route('/camera-views', methods=['GET'])
 def get_camera_views():
     print('Get camera views')
-    return str(cv_detect.cameras_views)
+    return Response(json.dumps(cv_detect.cameras_views))
 
 if __name__ == '__main__':
 
