@@ -153,7 +153,8 @@ class DeviceManager:
 
         # Set the acquisition parameters
         sensor = pipeline_profile.get_device().first_depth_sensor()
-        sensor.set_option(rs.option.emitter_enabled, 1 if enable_ir_emitter else 0)
+        # NOTE: COMMENT OUT LINE BELOW FOR L515
+        # sensor.set_option(rs.option.emitter_enabled, 1 if enable_ir_emitter else 0)
         self._enabled_devices[device_serial] = (Device(pipeline, pipeline_profile))
         return pipeline, pipeline_profile
 
@@ -178,9 +179,11 @@ class DeviceManager:
         for (device_serial, device) in self._enabled_devices.items():
             # Get the active profile and enable the emitter for all the connected devices
             sensor = device.pipeline_profile.get_device().first_depth_sensor()
-            sensor.set_option(rs.option.emitter_enabled, 1 if enable_ir_emitter else 0)
-            if enable_ir_emitter:
-                sensor.set_option(rs.option.laser_power, 330)
+            # NOTE: COMMENT OUT LINE BELOW FOR L515
+            # sensor.set_option(rs.option.emitter_enabled, 1 if enable_ir_emitter else 0)
+            # NOTE: COMMENT OUT BLOCK BELOW FOR L515
+            # if enable_ir_emitter:
+                # sensor.set_option(rs.option.laser_power, 330)
 
     def load_settings_json(self, path_to_settings_file):
         """

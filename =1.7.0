@@ -1,0 +1,8 @@
+Collecting torch
+  Using cached torch-1.9.0-cp36-cp36m-manylinux2014_aarch64.whl (49.1 MB)
+Collecting dataclasses
+  Using cached dataclasses-0.8-py3-none-any.whl (19 kB)
+Collecting typing-extensions
+  Using cached typing_extensions-3.10.0.0-py3-none-any.whl (26 kB)
+Installing collected packages: typing-extensions, dataclasses, torch
+Successfully installed dataclasses-0.8 torch-1.9.0 typing-extensions-3.10.0.0
