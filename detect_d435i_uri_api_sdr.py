@@ -39,6 +39,7 @@ class LoadRS:  # capture Realsense stream
     thread = []
     detected = {}
     aggregated_results = {}
+    cameras_views = {}
 
     def __init__(self, pipe='rs', img_size=640, stride=32):
         self.img_size = img_size
@@ -309,6 +310,18 @@ class LoadRS:  # capture Realsense stream
                                     covered_img = self.cover_detected_items(covered_img, xywh, gray_color)
                                     depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channel
                                     bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), gray_color, covered_img)
+                        
+                                    # saves as image from numpy array value of bg_removed
+                                    img = Image.fromarray(bg_removed, 'RGB')
+                                    # saves as jpg file for further eval
+                                    img.save('undetected-items.jpg')
+
+                                    # opens prev set .jpg file as a binary
+                                    with open('undetected-items.jpg', 'rb') as image_file:
+                                        # encodes to proper browser compatible base64 format 
+                                        encoded_string = base64.b64encode(image_file.read())
+                                        self.cameras_views['unrecognized-items'] = encoded_string
+
                                     cv2.namedWindow('Undetected Items', cv2.WINDOW_NORMAL)
                                     cv2.imshow('Undetected Items', bg_removed)
                             
@@ -320,10 +333,33 @@ class LoadRS:  # capture Realsense stream
                         covered_img = self.cover_detected_items(im0, xywh_bar, gray_color)
                         depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channel
                         bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), gray_color, covered_img)
+
+                        # saves as image from numpy array value of bg_removed
+                        img = Image.fromarray(bg_removed, 'RGB')
+                        # saves as jpg file for further eval
+                        img.save('undetected-items.jpg')
+
+                        # opens prev set .jpg file as a binary
+                        with open('undetected-items.jpg', 'rb') as image_file:
+                            # encodes to proper browser compatible base64 format 
+                            encoded_string = base64.b64encode(image_file.read())
+                            self.cameras_views['unrecognized-items'] = encoded_string
+
                         cv2.namedWindow('Undetected Items', cv2.WINDOW_NORMAL)
                         cv2.imshow('Undetected Items', bg_removed)
                 # Print time (inference + NMS)
                 print(f'{s}Done. ({t2 - t1:.3f}s)')
+
+                # saves as image from numpy array value of im0
+                img = Image.fromarray(im0, 'RGB')
+                # saves as jpg file for further eval
+                img.save('camera-%s.jpg'%(str(i)))
+
+                # opens prev set .jpg file as a binary
+                with open('camera-%s.jpg'%(str(i)), 'rb') as image_file:
+                    # encodes to proper browser compatible base64 format 
+                    encoded_string = base64.b64encode(image_file.read())
+                    self.cameras_views['camera-%s'%(str(i))] = encoded_string
 
                 # Stream results
                 cv2.namedWindow(str(i) + ": " + str(p), cv2.WINDOW_NORMAL)
@@ -398,6 +434,12 @@ cv_detect.start()
 def get_detected_items():
     print('Get detected items')
     return str(cv_detect.aggregated_results)
+
+
+@app.route('/camera-views', methods=['GET'])
+def get_camera_views():
+    print('Get camera views')
+    return str(cv_detect.cameras_views)
 
 if __name__ == '__main__':
 

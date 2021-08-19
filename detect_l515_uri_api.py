@@ -316,11 +316,14 @@ class LoadRS:  # capture Realsense stream
                                     depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channel
                                     bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), gray_color, covered_img)
 
-
+                                    # save as image from numpy array value of bg_removed
                                     img = Image.fromarray(bg_removed, 'RGB')
+                                    # saves as jpg file for further eval
                                     img.save('undetected-items.jpg')
 
+                                    # opens prev set .jpg fil as a binary
                                     with open('undetected-items.jpg', 'rb') as image_file:
+                                        # encodes to proper browser compatible base64 format
                                         encoded_string = base64.b64encode(image_file.read())
                                         self.cameras_views['unrecognized-items'] = encoded_string
 
@@ -336,10 +339,14 @@ class LoadRS:  # capture Realsense stream
                         depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channel
                         bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), gray_color, covered_img)
 
+                        # save as image from numpy array value of bg_removed
                         img = Image.fromarray(bg_removed, 'RGB')
+                        # saves as jpg file for further eval
                         img.save('undetected-items.jpg')
 
+                        # opens prev set .jpg file as a binary
                         with open('undetected-items.jpg', 'rb') as image_file:
+                            # encodes to proper browser compatible base64 format 
                             encoded_string = base64.b64encode(image_file.read())
                             self.cameras_views['unrecognized-items'] = encoded_string
 
@@ -357,7 +364,6 @@ class LoadRS:  # capture Realsense stream
                 with open('camera-%s.jpg'%(str(i)), 'rb') as image_file:
                     # encodes to proper browser compatible base64 format 
                     encoded_string = base64.b64encode(image_file.read())
-                    # TODO: set up socketio and emit this encoded stri
                     self.cameras_views['camera-%s'%(str(i))] = encoded_string
 
                 # Stream results
