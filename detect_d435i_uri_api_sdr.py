@@ -227,6 +227,18 @@ class LoadRS:  # capture Realsense stream
         t0 = time.time()
         img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
         _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
+
+        # handles camera_views image setting
+        def handle_camera_views(img_object, camera_view):
+            # save as image from numpy array value of img_object argument
+            camera_view_img = Image.fromarray(img_object, 'RGB')
+            # saves as jpg file for further eval
+            camera_view_img.save('%s.jpg'%(camera_view))
+
+            with open('%s.jpg'%(camera_view), 'rb') as image_file:
+                # encodes to proper browser compatible base64 format
+                encoded_string = base64.standard_b64encode(image_file.read())
+                self.cameras_views[camera_view] = encoded_string.decode('utf-8')
         
         # Initialize cv-detected item dictionary
         self.detected = {}
@@ -317,16 +329,8 @@ class LoadRS:  # capture Realsense stream
                                     depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channel
                                     bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), gray_color, covered_img)
 
-                                    # save as image from numpy array value of bg_removed
-                                    img = Image.fromarray(bg_removed, 'RGB')
-                                    # saves as jpg file for further eval
-                                    img.save('undetected_items.jpg')
-
-                                    # opens prev set .jpg fil as a binary
-                                    with open('undetected_items.jpg', 'rb') as image_file:
-                                        # encodes to proper browser compatible base64 format
-                                        encoded_string = base64.standard_b64encode(image_file.read())
-                                        self.cameras_views['unrecognized_items'] = encoded_string.decode('utf-8')
+                                    # handle camera_views setting
+                                    handle_camera_views(bg_removed, 'unrecognized_items')
 
                                     cv2.namedWindow('Undetected Items', cv2.WINDOW_NORMAL)
                                     cv2.imshow('Undetected Items', bg_removed)
@@ -340,32 +344,16 @@ class LoadRS:  # capture Realsense stream
                         depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channel
                         bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), gray_color, covered_img)
 
-                         # save as image from numpy array value of bg_removed
-                        img = Image.fromarray(bg_removed, 'RGB')
-                        # saves as jpg file for further eval
-                        img.save('undetected_items.jpg')
-
-                        # opens prev set .jpg file as a binary
-                        with open('undetected_items.jpg', 'rb') as image_file:
-                            # encodes to proper browser compatible base64 format 
-                            encoded_string = base64.standard_b64encode(image_file.read())
-                            self.cameras_views['unrecognized_items'] = encoded_string.decode('utf-8')
+                        # handle camera_views setting
+                        handle_camera_views(bg_removed, 'unrecognized_items')
 
                         cv2.namedWindow('Undetected Items', cv2.WINDOW_NORMAL)
                         cv2.imshow('Undetected Items', bg_removed)
                 # Print time (inference + NMS)
                 print(f'{s}Done. ({t2 - t1:.3f}s)')
 
-                 # saves as image from numpy array value of im0
-                img = Image.fromarray(im0, 'RGB')
-                # saves as jpg file for further eval
-                img.save('camera_%s.jpg'%(str(i)))
-
-                # opens prev set .jpg file as a binary
-                with open('camera_%s.jpg'%(str(i)), 'rb') as image_file:
-                    # encodes to proper browser compatible base64 format 
-                    encoded_string = base64.standard_b64encode(image_file.read())
-                    self.cameras_views['camera_%s'%(str(i))] = encoded_string.decode('utf-8')
+                # handle camera_views setting
+                handle_camera_views(im0, 'camera_%s'%(str(i)))
 
                 # Stream results
                 cv2.namedWindow(str(i) + ": " + str(p), cv2.WINDOW_NORMAL)
