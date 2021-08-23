@@ -3,6 +3,8 @@ import time
 from pathlib import Path
 from types import FrameType
 
+import base64
+from PIL import Image
 import cv2
 from numpy.core.fromnumeric import round_
 import torch
@@ -29,7 +31,7 @@ from helper_functions import get_boundary_corners_2D, convert_depth_frame_to_poi
 from measurement_task import calculate_boundingbox_points, new_visualise_measurements
 
 # Import flask stuff and api
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 import requests
 import json
 
@@ -39,6 +41,7 @@ class LoadRS:  # capture Realsense stream
     thread = []
     detected = {}
     aggregated_results = {}
+    camera_views = {}
 
     def __init__(self, pipe='rs', img_size=640, stride=32):
         self.img_size = img_size
@@ -56,6 +59,10 @@ class LoadRS:  # capture Realsense stream
         
         # Enable the streams from all the intel realsense devices
         rs_config = rs.config()
+        #
+        #
+        #
+        #
         rs_config.enable_stream(rs.stream.depth, resolution_width, resolution_height, rs.format.z16, frame_rate)
         rs_config.enable_stream(rs.stream.infrared, 1, resolution_width, resolution_height, rs.format.y8, frame_rate)
         rs_config.enable_stream(rs.stream.color, resolution_width, resolution_height, rs.format.bgr8, frame_rate)
@@ -220,6 +227,18 @@ class LoadRS:  # capture Realsense stream
         t0 = time.time()
         img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
         _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
+
+        # handles camera_views image setting
+        def handle_camera_views(img_object, camera_view):
+            # save as image from numpy array value of img_object argument
+            camera_view_img = Image.fromarray(img_object, 'RGB')
+            # saves as jpg file for further eval
+            camera_view_img.save('%s.jpg'%(camera_view))
+
+            with open('%s.jpg'%(camera_view), 'rb') as image_file:
+                # encodes to proper browser compatible base64 format
+                encoded_string = base64.standard_b64encode(image_file.read())
+                self.cameras_views[camera_view] = encoded_string.decode('utf-8')
         
         # Initialize cv-detected item dictionary
         self.detected = {}
@@ -309,6 +328,10 @@ class LoadRS:  # capture Realsense stream
                                     covered_img = self.cover_detected_items(covered_img, xywh, gray_color)
                                     depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channel
                                     bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), gray_color, covered_img)
+
+                                    # handle camera_views setting
+                                    handle_camera_views(bg_removed, 'unrecognized_items')
+
                                     cv2.namedWindow('Undetected Items', cv2.WINDOW_NORMAL)
                                     cv2.imshow('Undetected Items', bg_removed)
                             
@@ -320,10 +343,17 @@ class LoadRS:  # capture Realsense stream
                         covered_img = self.cover_detected_items(im0, xywh_bar, gray_color)
                         depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channel
                         bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), gray_color, covered_img)
+
+                        # handle camera_views setting
+                        handle_camera_views(bg_removed, 'unrecognized_items')
+
                         cv2.namedWindow('Undetected Items', cv2.WINDOW_NORMAL)
                         cv2.imshow('Undetected Items', bg_removed)
                 # Print time (inference + NMS)
                 print(f'{s}Done. ({t2 - t1:.3f}s)')
+
+                # handle camera_views setting
+                handle_camera_views(im0, 'camera_%s'%(str(i)))
 
                 # Stream results
                 cv2.namedWindow(str(i) + ": " + str(p), cv2.WINDOW_NORMAL)
@@ -398,6 +428,11 @@ cv_detect.start()
 def get_detected_items():
     print('Get detected items')
     return str(cv_detect.aggregated_results)
+
+@app.route('/camera-views', methods=['GET'])
+def get_camera_views():
+    print('Get camera views')
+    return Response(json.dumps(cv_detect.cameras_views))
 
 if __name__ == '__main__':
 
