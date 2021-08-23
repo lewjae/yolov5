@@ -193,7 +193,7 @@ class LoadRS:  # capture Realsense stream
         device = ''
         cut_off_distance = 1.1  #in meter. cuf-off distance for object detection
 
-        depth_scale = 0.001  #D435i
+        depth_scale = 0.0002500000118743628  #l515
         clipping_distance_in_meters = 0.98 #1.02 #1 meter
         clipping_distance = clipping_distance_in_meters / depth_scale
 
