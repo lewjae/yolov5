@@ -35,6 +35,9 @@ from flask import Flask, request, jsonify, Response
 import requests
 import json
 
+# import hardcode map-to-itemid map
+from items import *
+
 
 class LoadRS:  # capture Realsense stream
 
@@ -174,7 +177,9 @@ class LoadRS:  # capture Realsense stream
                 items_dict[k].add(v)	
 
         agg_dict = {}
-        agg_dict = {k : max(items_dict[k]) for k in items_dict}
+        # agg_dict = {k : max(items_dict[k]) for k in items_dict}
+        # returns mapped itemID (upc) values for general name
+        agg_dict = {label_to_itemId_map[k]: max(items_dict[k]) for k in items_dict}
         return agg_dict
 
     # YoloV5 object detection inferencer
@@ -427,7 +432,7 @@ cv_detect.start()
 @app.route('/detect', methods=['GET'])
 def get_detected_items():
     print('Get detected items')
-    return str(cv_detect.aggregated_results)
+    return Response(json.dumps(cv_detect.aggregated_results))
 
 @app.route('/camera-views', methods=['GET'])
 def get_camera_views():
