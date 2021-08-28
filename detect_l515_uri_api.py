@@ -10,6 +10,7 @@ from numpy.core.fromnumeric import round_
 import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
+import jwt
 
 import pyrealsense2 as rs
 import numpy as np
@@ -38,6 +39,11 @@ import json
 # import hardcode map-to-itemid map
 from items import *
 
+# helpers
+import helpers.auth as auth
+
+# configs
+from config import Config
 
 class LoadRS:  # capture Realsense stream
 
@@ -426,15 +432,41 @@ class LoadRS:  # capture Realsense stream
 
 
 app = Flask(__name__)
+config = Config.get_instance()
 cv_detect = LoadRS('rs', 640)
 cv_detect.start()
 
+@app.route('/login', methods=['POST'])
+def login():
+    args = request.json
+
+    if not 'username' in args:
+        return Response(json.dumps({ 'message': 'proper arguments do not exist' })), 403
+
+    if not 'password' in args:
+        return Response(json.dumps({ 'message': 'proper arguments do not exist' })), 403
+
+    if args['username'] == config.get('auth_username') and args['password'] == config.get('auth_password'):
+        data = {
+            'user': config.get('auth_username')
+            # 'exp': datetime.datetime.now() + datetime.timedelta(minutes = 30)
+        }
+        try:
+            jwt_token = jwt.encode(data, config.get('jwt_secret'), algorithm="HS256")
+            return Response(json.dumps({ 'message': 'login successful', 'token': jwt_token })), 200
+        except IOError:
+            return Response(json.dumps({ 'message': 'An error occurred during login: ' + IOError })), 500
+    else:
+        return Response(json.dumps({ 'message': 'invalid credentials' })), 401
+
 @app.route('/detect', methods=['GET'])
+@auth.token_check()
 def get_detected_items():
     print('Get detected items')
     return Response(json.dumps(cv_detect.aggregated_results))
 
 @app.route('/camera-views', methods=['GET'])
+@auth.token_check()
 def get_camera_views():
     print('Get camera views')
     return Response(json.dumps(cv_detect.cameras_views))
