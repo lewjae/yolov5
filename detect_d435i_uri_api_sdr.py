@@ -11,6 +11,7 @@ import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
 import jwt
+import datetime
 
 import pyrealsense2 as rs
 import numpy as np
@@ -449,7 +450,8 @@ def login():
 
     if args['username'] == config.get('auth_username') and args['password'] == config.get('auth_password'):
         data = {
-            'user': config.get('auth_username')
+            'user': 'gulfstream_admin',
+            'timestamp': datetime.datetime.now(),
             # 'exp': datetime.datetime.now() + datetime.timedelta(minutes = 30)
         }
         try:
@@ -465,7 +467,6 @@ def login():
 def get_detected_items():
     print('Get detected items')
     return Response(json.dumps(cv_detect.aggregated_results))
-
 
 @app.route('/camera-views', methods=['GET'])
 @auth.token_check()
