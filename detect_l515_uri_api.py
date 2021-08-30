@@ -11,7 +11,7 @@ import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
 import jwt
-import datetime
+import time
 
 import pyrealsense2 as rs
 import numpy as np
@@ -450,7 +450,7 @@ def login():
     if args['username'] == config.get('auth_username') and args['password'] == config.get('auth_password'):
         data = {
             'user': 'gulfstream_admin',
-            'timestamp': datetime.datetime.now(),
+            'timestamp': round(time.time() * 1000),
             # 'exp': datetime.datetime.now() + datetime.timedelta(minutes = 30)
         }
         try:
