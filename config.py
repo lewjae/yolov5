@@ -24,7 +24,6 @@ class Config(object):
                         print(line)
             with open(self.config_file) as f:
                 self.config_data = json.load(f)
-                print('Configuration loaded: ', self.config_data)
 
     def get(self, key):
         # return None and prevent exception
