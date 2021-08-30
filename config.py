@@ -18,6 +18,11 @@ class Config(object):
         else:
             Config.__instance = self
             with open(self.config_file) as f:
+                lines = f.readlines()
+                for line in lines:
+                    if "_secret" not in line:
+                        print(line)
+            with open(self.config_file) as f:
                 self.config_data = json.load(f)
                 print('Configuration loaded: ', self.config_data)
 

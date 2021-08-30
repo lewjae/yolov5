@@ -448,7 +448,7 @@ def login():
     if not 'password' in args:
         return Response(json.dumps({ 'message': 'proper arguments do not exist' })), 403
 
-    if args['username'] == config.get('auth_username') and args['password'] == config.get('auth_password'):
+    if args['username'] == config.get('auth_username_secret') and args['password'] == config.get('auth_password_secret'):
         data = {
             'user': 'gulfstream_admin',
             'timestamp': round(time.time() * 1000)
