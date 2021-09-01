@@ -56,8 +56,8 @@ def run_demo():
             frames = device_manager.poll_frames()
         assert( len(device_manager._available_devices) > 0 )
 
-        for device, frame in frames.items():
-            print("frame: ",device, rs.stream.color)
+        #for device, frame in frames.items():
+            #print("frame: ",device, rs.stream.color)
             #align = rs.align(frame[rs.stream.color])
 
         """
@@ -76,6 +76,7 @@ def run_demo():
         calibrated_device_count = 0
         while calibrated_device_count < len(device_manager._available_devices):
             frames = device_manager.poll_frames()
+            print("Jae - frames: ", frames)
             pose_estimator = PoseEstimation(frames, intrinsics_devices, chessboard_params)
             transformation_result_kabsch  = pose_estimator.perform_pose_estimation()
             object_point = pose_estimator.get_chessboard_corners_in3d()
@@ -111,7 +112,7 @@ def run_demo():
                 """
 
         # Enable the emitter of the devices
-        #device_manager.enable_emitter(True)
+        device_manager.enable_emitter(True)
 
         # Load the JSON settings file in order to enable High Accuracy preset for the realsense
         device_manager.load_settings_json("./HighResHighAccuracyPreset.json")
@@ -122,10 +123,11 @@ def run_demo():
         # Get the calibration info as a dictionary to help with display of the measurements onto the color image instead of infra red image
         calibration_info_devices = defaultdict(list)
         for calibration_info in (transformation_devices, intrinsics_devices, extrinsics_devices):
+            print("calibration_info: ", calibration_info)
             for key, value in calibration_info.items():
                 calibration_info_devices[key].append(value)
 
-
+        print("Jae:Calibration_info_devices: ",calibration_info_devices)
 
         # Continue acquisition until terminated with Ctrl+C by the user
         while 1:
@@ -166,6 +168,7 @@ def run_demo():
                 pose_mat = calibration_info_devices[device][0].pose_mat
                 print("pose_mat: ", device, pose_mat)
 
+                print("infrared :",  calibration_info_devices[device][1])
                 intrinsics = calibration_info_devices[device][1][rs.stream.color]
 
                 w = intrinsics.width
