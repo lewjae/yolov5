@@ -219,6 +219,7 @@ class DeviceManager:
                         else:
                             frame = frameset.first_or_default(stream.stream_type())
                             key_ = stream.stream_type()
+                        #print("[Jae] key_: ", serial, key_)    
                         frames[serial][key_] = frame
 
         return frames
