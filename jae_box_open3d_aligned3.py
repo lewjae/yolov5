@@ -52,8 +52,6 @@ def run_demo():
         # Use the device manager class to enable the devices and get the frames
         device_manager = DeviceManager(rs.context(), rs_config)
         mypipelines = device_manager.enable_all_devices()
-       
-        print("***mypipelines: ", mypipelines)
         
         # Allow some frames for the auto-exposure controller to stablise
         for frame in range(dispose_frames_for_stablisation):
@@ -63,6 +61,15 @@ def run_demo():
         #for device, frame in frames.items():
             #print("frame: ",device, rs.stream.color)
             #align = rs.align(frame[rs.stream.color])
+
+        # Enable the emitter of the devices
+        device_manager.enable_emitter(True)
+
+        # Load the JSON settings file in order to enable High Accuracy preset for the realsense
+        device_manager.load_settings_json("./HighResHighAccuracyPreset.json")
+
+
+
 
         """
         1: Calibration
@@ -80,55 +87,56 @@ def run_demo():
         calibrated_device_count = 0
 
 
-        print("mypipelines: ", mypipelines)
-        for (device, frame) in mypipelines.items():
-            frame = frame["pipeline"]
-            frame = frame.wait_for_frames()
-            frame = align_function.process(frame.as_frameset())
-            print("****frame****: ", frame)
-        print("enabled_device: ", device_manager._enabled_devices)
+        for (serial, device) in device_manager._enabled_devices.items():
+            streams = device.pipeline_profile.get_streams()
 
-        for (serial, jframe) in mypipelines.items():
+        for (serial, frame) in mypipelines.items():
         #while calibrated_device_count < len(device_manager._available_devices):
             #frames = device_manager.poll_frames()
             #print("Jae1 - frames: ", frames)
 
-            frames = {}
-            while len(frames) < len(device_manager._enabled_devices.items()) :
-                for (serial, device) in device_manager._enabled_devices.items():
-                    streams = device.pipeline_profile.get_streams()
-                    #streams = jframe
-                    #print("Jae - frame: ", jframe)
-                    myframe = jframe["pipeline"] 
-                    myframe = myframe.wait_for_frames()
-                    frameset = align_function.process(myframe.as_frameset())
-                    #frameset = device.pipeline.poll_for_frames() #frameset will be a pyrealsense2.composite_frame object
+            #frames = {}
+            #while len(frames) < len(device_manager._enabled_devices.items()) :
 
-                    if frameset.size() == len(streams):
-                        frames[serial] = {}
-                        for stream in streams:
-                            if (rs.stream.infrared == stream.stream_type()):
+                    #streams = jframe
+            #print("\n[Jae] - streams: ", streams)
+            myframe = frame["pipeline"] 
+            myframe = myframe.wait_for_frames()
+            frameset = align_function.process(myframe.as_frameset())
+            #frameset = device.pipeline.poll_for_frames() #frameset will be a pyrealsense2.composite_frame object
+
+            if frameset.size() == len(streams):
+                    frames[serial] = {}
+                    for stream in streams:
+                        if (rs.stream.infrared == stream.stream_type()):
                                 frame = frameset.get_infrared_frame(stream.stream_index())
                                 key_ = (stream.stream_type(), stream.stream_index())
-                            else:
+                        else:
                                 frame = frameset.first_or_default(stream.stream_type())
                                 key_ = stream.stream_type()
                             #print("[Jae] key_: ", serial, key_)    
-                            frames[serial][key_] = frame
-                print("frames: ", frames)
+                        frames[serial][key_] = frame
+                #print("frames: ", frames)
             #frames = align_function.process(frame)
-            print("Jae2- frames: ", frames)
+            print("\n[Jae] frames: ", frames)
+
+            intrinsics_devices = device_manager.get_device_intrinsics(frames)
+            print("\n[Jae] - intrinsics_devices3: ", intrinsics_devices)
 
 
             pose_estimator = PoseEstimation(frames, intrinsics_devices, chessboard_params)
             transformation_result_kabsch  = pose_estimator.perform_pose_estimation()
+            #print("\n[Jae]: transformation_result_kabsch", transformation_result_kabsch)
+
             object_point = pose_estimator.get_chessboard_corners_in3d()
             calibrated_device_count = 0
             for device in device_manager._available_devices:
+                #print("\n[Jae] device: ", device, device_manager._available_devices)
                 if not transformation_result_kabsch[device][0]:
                     print("Place the chessboard on the plane where the object needs to be detected..")
                 else:
                     calibrated_device_count += 1
+                    #print("Jae - transformation_result_kabsch[device][1]: ", transformation_result_kabsch[device][1])
 
         # Save the transformation object for all devices in an array to use for measurements
         transformation_devices={}
@@ -162,12 +170,12 @@ def run_demo():
 
         # Get the extrinsics of the device to be used later
         extrinsics_devices = device_manager.get_depth_to_color_extrinsics(frames)
-        print("[Jae] extrinsics_devices: ", extrinsics_devices)
+        print("\n[Jae] extrinsics_devices: ", extrinsics_devices)
 
         # Get the calibration info as a dictionary to help with display of the measurements onto the color image instead of infra red image
         calibration_info_devices = defaultdict(list)
         for calibration_info in (transformation_devices, intrinsics_devices, extrinsics_devices):
-            #print("calibration_info: ", calibration_info)
+            print("calibration_info: ", calibration_info)
             for key, value in calibration_info.items():
                 calibration_info_devices[key].append(value)
 

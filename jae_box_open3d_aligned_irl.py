@@ -76,10 +76,13 @@ def run_demo():
         calibrated_device_count = 0
         while calibrated_device_count < len(device_manager._available_devices):
             frames = device_manager.poll_frames()
-            print("Jae - frames: ", frames)
+            print("Jae - before frames: ", frames)
+            for idx, frame in enumerate(frames):
+                frame[idx] = align_function.process(frame.as_frameset())
+            print("Jae - after frames: ", frames)
+            
             pose_estimator = PoseEstimation(frames, intrinsics_devices, chessboard_params)
             transformation_result_kabsch  = pose_estimator.perform_pose_estimation()
-            print("\n[Jae]: transformation_result_kabsch", transformation_result_kabsch)
             object_point = pose_estimator.get_chessboard_corners_in3d()
             calibrated_device_count = 0
             for device in device_manager._available_devices:
@@ -120,7 +123,6 @@ def run_demo():
 
         # Get the extrinsics of the device to be used later
         extrinsics_devices = device_manager.get_depth_to_color_extrinsics(frames)
-        print("[Jae] extrinsics_devices: ", extrinsics_devices)
 
         # Get the calibration info as a dictionary to help with display of the measurements onto the color image instead of infra red image
         calibration_info_devices = defaultdict(list)
