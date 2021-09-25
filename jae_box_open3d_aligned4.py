@@ -18,6 +18,7 @@ from numpy.core.numeric import Inf
 import pyrealsense2 as rs
 import cv2
 import numpy as np
+import time 
 
 import open3d as o3d
 
@@ -68,7 +69,7 @@ def run_demo():
         # Load the JSON settings file in order to enable High Accuracy preset for the realsense
         device_manager.load_settings_json("./HighResHighAccuracyPreset.json")
 
-
+        time.sleep(3)
 
 
         """
@@ -79,19 +80,19 @@ def run_demo():
         """
         # Get the intrinsics of the realsense device 
         intrinsics_devices = device_manager.get_device_intrinsics(frames)
-        print("Jae - intrinsics_devices: ", intrinsics_devices)
+        #print("Jae - intrinsics_devices: ", intrinsics_devices)
         # Set the chessboard parameters for calibration 
         chessboard_params = [chessboard_height, chessboard_width, square_size] 
         
         # Estimate the pose of the chessboard in the world coordinate using the Kabsch Method
         calibrated_device_count = 0
 
-
         for (serial, device) in device_manager._enabled_devices.items():
             streams = device.pipeline_profile.get_streams()
+        
 
-        for (serial, frame) in mypipelines.items():
-        #while calibrated_device_count < len(device_manager._available_devices):
+        while calibrated_device_count < len(device_manager._available_devices):
+            for (serial, frame) in mypipelines.items():
             #frames = device_manager.poll_frames()
             #print("Jae1 - frames: ", frames)
 
@@ -100,12 +101,13 @@ def run_demo():
 
                     #streams = jframe
             #print("\n[Jae] - streams: ", streams)
-            myframe = frame["pipeline"] 
-            myframe = myframe.wait_for_frames()
-            frameset = align_function.process(myframe.as_frameset())
-            #frameset = device.pipeline.poll_for_frames() #frameset will be a pyrealsense2.composite_frame object
+                time.sleep(1)
+                myframe = frame["pipeline"] 
+                myframe = myframe.wait_for_frames()
+                frameset = align_function.process(myframe.as_frameset())
+                #frameset = device.pipeline.poll_for_frames() #frameset will be a pyrealsense2.composite_frame object
 
-            if frameset.size() == len(streams):
+                if frameset.size() == len(streams):
                     frames[serial] = {}
                     for stream in streams:
                         if (rs.stream.infrared == stream.stream_type()):
@@ -118,15 +120,15 @@ def run_demo():
                         frames[serial][key_] = frame
                 #print("frames: ", frames)
             #frames = align_function.process(frame)
-            print("\n[Jae] frames: ", frames)
+            #print("\n[Jae] frames: ", frames)
 
-            intrinsics_devices = device_manager.get_device_intrinsics(frames)
-            print("\n[Jae] - intrinsics_devices3: ", intrinsics_devices)
-
+            #intrinsics_devices = device_manager.get_device_intrinsics(frames)
+            #time.sleep(1)
+            #print("\n[Jae] - intrinsics_devices3: ", intrinsics_devices)
 
             pose_estimator = PoseEstimation(frames, intrinsics_devices, chessboard_params)
             transformation_result_kabsch  = pose_estimator.perform_pose_estimation()
-            #print("\n[Jae]: transformation_result_kabsch", transformation_result_kabsch)
+            print("\n[Jae]: transformation_result_kabsch", transformation_result_kabsch)
 
             object_point = pose_estimator.get_chessboard_corners_in3d()
             calibrated_device_count = 0
@@ -136,6 +138,7 @@ def run_demo():
                     print("Place the chessboard on the plane where the object needs to be detected..")
                 else:
                     calibrated_device_count += 1
+                    print("[Jae]: Calibrated_device_count: ", calibrated_device_count)
                     #print("Jae - transformation_result_kabsch[device][1]: ", transformation_result_kabsch[device][1])
 
         # Save the transformation object for all devices in an array to use for measurements
@@ -151,7 +154,7 @@ def run_demo():
         # It is necessary for this demo that the object's length and breath is smaller than that of the chessboard
         chessboard_points_cumulative_3d = np.delete(chessboard_points_cumulative_3d, 0, 1)
         roi_2D = get_boundary_corners_2D(chessboard_points_cumulative_3d)
-        print("roi_2D: ",roi_2D)
+        print("\nroi_2D: ",roi_2D)
         print("Calibration completed... \nPlace the box in the field of view of the devices...")
 
 
@@ -241,8 +244,12 @@ def run_demo():
             vis = o3d.visualization.Visualizer()
             vis.create_window()
             for i in range(len(device_manager._available_devices)):
+                bbox3d = pcds[i].get_oriented_bounding_box()
+                print("bbox3d center:  ",bbox3d.center)
                 vis.add_geometry(pcds[i])
             o3d.visualization.ViewControl.set_zoom(vis.get_view_control(), 0.3)
+            print("*** Hi Jae! ***")
+            #bbox3d = pcds.get_oriented_bounding_box()
             vis.run()
 
 

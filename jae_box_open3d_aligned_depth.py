@@ -14,7 +14,6 @@
 
 # Import RealSense, OpenCV and NumPy
 from os import close
-from numpy.core.numeric import Inf
 import pyrealsense2 as rs
 import cv2
 import numpy as np
@@ -47,7 +46,6 @@ def run_demo():
         rs_config.enable_stream(rs.stream.infrared, 1, resolution_width, resolution_height, rs.format.y8, frame_rate)
         rs_config.enable_stream(rs.stream.color, resolution_width, resolution_height, rs.format.rgb8, frame_rate)
         align_function = rs.align(rs.stream.depth)
-        #align_function = rs.align((rs.stream.infrared,1))
 
         # Use the device manager class to enable the devices and get the frames
         device_manager = DeviceManager(rs.context(), rs_config)
@@ -62,6 +60,13 @@ def run_demo():
             #print("frame: ",device, rs.stream.color)
             #align = rs.align(frame[rs.stream.color])
 
+        """
+        1: Calibration
+        Calibrate all the available devices to the world co-ordinates.
+        For this purpose, a chessboard printout for use with opencv based calibration process is needed.
+        
+        """
+
         # Enable the emitter of the devices
         device_manager.enable_emitter(True)
 
@@ -70,73 +75,27 @@ def run_demo():
 
 
 
-
-        """
-        1: Calibration
-        Calibrate all the available devices to the world co-ordinates.
-        For this purpose, a chessboard printout for use with opencv based calibration process is needed.
-        
-        """
         # Get the intrinsics of the realsense device 
         intrinsics_devices = device_manager.get_device_intrinsics(frames)
-        print("Jae - intrinsics_devices: ", intrinsics_devices)
+        #print("Jae - intrinsics_devices: ", intrinsics_devices)
         # Set the chessboard parameters for calibration 
         chessboard_params = [chessboard_height, chessboard_width, square_size] 
         
         # Estimate the pose of the chessboard in the world coordinate using the Kabsch Method
         calibrated_device_count = 0
-
-
-        for (serial, device) in device_manager._enabled_devices.items():
-            streams = device.pipeline_profile.get_streams()
-
-        for (serial, frame) in mypipelines.items():
-        #while calibrated_device_count < len(device_manager._available_devices):
-            #frames = device_manager.poll_frames()
-            #print("Jae1 - frames: ", frames)
-
-            #frames = {}
-            #while len(frames) < len(device_manager._enabled_devices.items()) :
-
-                    #streams = jframe
-            #print("\n[Jae] - streams: ", streams)
-            myframe = frame["pipeline"] 
-            myframe = myframe.wait_for_frames()
-            frameset = align_function.process(myframe.as_frameset())
-            #frameset = device.pipeline.poll_for_frames() #frameset will be a pyrealsense2.composite_frame object
-
-            if frameset.size() == len(streams):
-                    frames[serial] = {}
-                    for stream in streams:
-                        if (rs.stream.infrared == stream.stream_type()):
-                                frame = frameset.get_infrared_frame(stream.stream_index())
-                                key_ = (stream.stream_type(), stream.stream_index())
-                        else:
-                                frame = frameset.first_or_default(stream.stream_type())
-                                key_ = stream.stream_type()
-                            #print("[Jae] key_: ", serial, key_)    
-                        frames[serial][key_] = frame
-                #print("frames: ", frames)
-            #frames = align_function.process(frame)
-            print("\n[Jae] frames: ", frames)
-
-            intrinsics_devices = device_manager.get_device_intrinsics(frames)
-            print("\n[Jae] - intrinsics_devices3: ", intrinsics_devices)
-
-
+        while calibrated_device_count < len(device_manager._available_devices):
+            frames = device_manager.poll_frames()
+            #print("Jae - frames: ", frames)
             pose_estimator = PoseEstimation(frames, intrinsics_devices, chessboard_params)
             transformation_result_kabsch  = pose_estimator.perform_pose_estimation()
             #print("\n[Jae]: transformation_result_kabsch", transformation_result_kabsch)
-
             object_point = pose_estimator.get_chessboard_corners_in3d()
             calibrated_device_count = 0
             for device in device_manager._available_devices:
-                #print("\n[Jae] device: ", device, device_manager._available_devices)
                 if not transformation_result_kabsch[device][0]:
                     print("Place the chessboard on the plane where the object needs to be detected..")
                 else:
                     calibrated_device_count += 1
-                    #print("Jae - transformation_result_kabsch[device][1]: ", transformation_result_kabsch[device][1])
 
         # Save the transformation object for all devices in an array to use for measurements
         transformation_devices={}
@@ -163,14 +122,14 @@ def run_demo():
                 """
 
         # Enable the emitter of the devices
-        device_manager.enable_emitter(True)
+        #device_manager.enable_emitter(True)
 
         # Load the JSON settings file in order to enable High Accuracy preset for the realsense
-        device_manager.load_settings_json("./HighResHighAccuracyPreset.json")
+        #device_manager.load_settings_json("./HighResHighAccuracyPreset.json")
 
         # Get the extrinsics of the device to be used later
         extrinsics_devices = device_manager.get_depth_to_color_extrinsics(frames)
-        print("\n[Jae] extrinsics_devices: ", extrinsics_devices)
+        #print("[Jae] extrinsics_devices: ", extrinsics_devices)
 
         # Get the calibration info as a dictionary to help with display of the measurements onto the color image instead of infra red image
         calibration_info_devices = defaultdict(list)
@@ -179,7 +138,7 @@ def run_demo():
             for key, value in calibration_info.items():
                 calibration_info_devices[key].append(value)
 
-        print("Jae:Calibration_info_devices: ",calibration_info_devices)
+        #print("Jae:Calibration_info_devices: ",calibration_info_devices)
 
         # Continue acquisition until terminated with Ctrl+C by the user
         while 1:
@@ -207,7 +166,6 @@ def run_demo():
                 #depth_frame = frame[rs.stream.depth]
                 color_np = np.asanyarray(frame.get_color_frame().get_data())
                 depth_np = np.asanyarray(frame.get_depth_frame().get_data())
-                infrared_np = np.asarray(frame.get_infrared_frame().get_data())
 
                 # Convert numpy to open3D
                 rgb = o3d.geometry.Image(color_np)
@@ -215,17 +173,15 @@ def run_demo():
 
                 # Create rgbd
                 rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(rgb, depth, convert_rgb_to_intensity=False)
-                #print("color :", calibration_info_devices[device][1][rs.stream.color])
+                print("color :", calibration_info_devices[device][1][rs.stream.color])
                     
-                #print("depth :",  calibration_info_devices[device][1][rs.stream.depth])
+                print("depth :",  calibration_info_devices[device][1][rs.stream.depth])
                 
                 pose_mat = calibration_info_devices[device][0].pose_mat
                 print("pose_mat: ", device, pose_mat)
 
-                #print("infrared :",  calibration_info_devices[device][1][(rs.stream.infrared,1)])
-                
+                print("infrared :",  calibration_info_devices[device][1])
                 intrinsics = calibration_info_devices[device][1][rs.stream.depth]
-                #intrinsics = calibration_info_devices[device][1][(rs.stream.infrared,1)]
 
                 w = intrinsics.width
                 h = intrinsics.height
