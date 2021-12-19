@@ -290,8 +290,8 @@ class LoadStreams:
             with open(sources) as f:
                 sources = [x.strip() for x in f.read().strip().splitlines() if len(x.strip())]
         else:
-            #sources = [sources]
-            sources = ['0','1']
+            sources = [sources]
+            #sources = ['0','1']
 
         n = len(sources)
         self.imgs, self.fps, self.frames, self.threads = [None] * n, [0] * n, [0] * n, [None] * n
