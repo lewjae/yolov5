@@ -54,7 +54,7 @@ class LoadRS:  # capture Realsense stream
         rs_config.enable_stream(rs.stream.depth, resolution_width, resolution_height, rs.format.z16, frame_rate)
         rs_config.enable_stream(rs.stream.infrared, 1, resolution_width, resolution_height, rs.format.y8, frame_rate)
         rs_config.enable_stream(rs.stream.color, resolution_width, resolution_height, rs.format.bgr8, frame_rate)
-        self.align_function = rs.align(rs.stream.color)
+        self.align_function = rs.align(rs.stream.depth)
 
         # Use the device manager class to enable the devices and get the frames
         self.device_manager = DeviceManager(rs.context(), rs_config)
@@ -170,7 +170,7 @@ class LoadRS:  # capture Realsense stream
                     print("pose_mat: ", device, pose_mat)
 
                     #print("infrared :",  calibration_info_devices[device][1])
-                    intrinsics = self.calibration_info_devices[device][1][rs.stream.color]
+                    intrinsics = self.calibration_info_devices[device][1][rs.stream.depth]
 
                     w = intrinsics.width
                     h = intrinsics.height
@@ -240,6 +240,7 @@ class LoadRS:  # capture Realsense stream
             img0.append(color_image)
             #Letter Box, BGR to RGB, to 3    
             img.append(letterbox(color_image, new_shape=self.img_size)[0][:,:,::-1].transpose(2,0,1))
+            #img.append(letterbox(color_image, new_shape=self.img_size)[0].transpose(2,0,1))
             depth_frames.append(filtered_depth_frame)
             sources.append(device)
 
@@ -399,11 +400,11 @@ def detect():
                             tranf = Transformation(pose_mat[:3,:3],pose_mat[3,:3])
                             xyz_cb = tranf.apply_transformation(np.array([[x],[y],[z]]))
                             print("x,y,z in cb coord: ", xyz_cb[0][0], xyz_cb[1][0], xyz_cb[2][0])
-                            
+                            """
                             x = xyz_cb[0][0]
                             y = xyz_cb[1][0]
                             z = xyz_cb[2][0]
-
+                            """
 
                             #(xx,yy,zz) = convert_depth_pixel_to_metric_coordinate(z,xp,yp,calibration_info_devices[cam][0][rs.stream.color])
                         
@@ -412,7 +413,7 @@ def detect():
                             #print("xx,yy,zz after: ", xx, yy, zz)				
                             #label = f'{names[int(cls)]} {conf:.2f}'
                             label = f'{names[int(cls)]} {conf:.2f}, [{x:0.2f} {y:0.2f} {z:0.2f}]m'
-                            plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
+                            plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2, rgb=False)
                             if names[int(cls)] in detected[cam]:
                                 detected[cam][names[int(cls)]] += 1
                             else:
